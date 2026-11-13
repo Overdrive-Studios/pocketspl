@@ -155,7 +155,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.6"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.7"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3418,6 +3418,7 @@ float peakDb = 0; uint32_t peakAt = 0;   // bar peak hold (2 s)
 char toastBig[16] = "", toastSmall[24] = "";
 uint32_t toastUntil = 0;
 uint32_t toastAt = 0, toastFadeAt = 0;     // Clean look: when the card appeared / started to fade out
+bool wDirty = false;                       // weighting changed with the button, not saved yet
 void toast(const char* big, const char* small, uint32_t ms) {
   if (!toastUntil || (int32_t)(millis() - toastUntil) >= 0) toastAt = millis();   // a new card fades in
   toastFadeAt = 0;
@@ -7931,7 +7932,7 @@ uint16_t levelColourSmooth(float v) {
 }
 
 // ---- the gliding reading (screen only) ----
-float uiDb = 0, uiFast = 0; uint32_t uiAt = 0; int uiMode = -1;
+float uiDb = 0, uiFast = 0; uint32_t uiAt = 0; int uiMode = -1, numMode = -2;
 void easeReading(float db, float fastDb, uint32_t now) {
   bool snapNow = warmup > 0 || uiAt == 0 || uiMode != rMode * 3 + wMode || now - uiAt > 1000;
   float k = snapNow ? 1.0f : 1.0f - expf(-(float)(now - uiAt) / 120.0f);   // ~0.12 s glide
@@ -7980,31 +7981,48 @@ const char* clRightWord(char* buf, size_t n, uint16_t& col) {
 }
 
 // ---- pop-up card (toasts) ----
-void clToast(uint32_t now) {               // messages slide into the bottom strip; the reading stays in view
-  bool live = toastUntil && (int32_t)(now - toastUntil) < 0;
-  float a;
-  if (live) a = clamp01((now - toastAt) / 150.0f);
-  else {
-    if (toastUntil) { toastFadeAt = toastUntil; toastUntil = 0; }
-    if (!toastFadeAt || now - toastFadeAt >= 200) { toastFadeAt = 0; return; }
-    a = 1.0f - (now - toastFadeAt) / 200.0f;
-  }
-  a = a * a * (3 - 2 * a);                  // ease in and out
-  uint8_t k = (uint8_t)(a * 255 + 0.5f);    // fade the bar and footer down to black
+static inline float sinceMs(uint32_t now, uint32_t t) { int32_t d = (int32_t)(now - t); return d < 0 ? 0.0f : (float)d; }
+static inline float easeIO(float a) { a = clamp01(a); return a * a * (3 - 2 * a); }
+static void fadeBottom(float a) {             // fade the bar and footer down to black
+  uint8_t k = (uint8_t)(clamp01(a) * 255 + 0.5f);
   uint16_t* buf = canvas.getBuffer();
   for (int i = 82 * 128; i < 128 * 128; i++) buf[i] = blend565(buf[i], C_BG, k);
+}
+static void drawPicker(float a) {             // weighting: A / C / Z, the chosen one lit
+  static const char* OPT[3] = {"A", "C", "Z"};
+  fadeBottom(a);
+  for (int i = 0; i < 3; i++) {
+    int x = 11 + i * 38;
+    if (i == wMode) fillRRAA(x, 86, 30, 20, 10, fadeIn(CL_SELECT, a));
+    else { fillRRAA(x, 86, 30, 20, 10, fadeIn(CL_TEXT3, a)); fillRRAA(x + 1, 87, 28, 18, 9, C_BG); }
+    textAAc(FT13, OPT[i], x + 15, 101, fadeIn(i == wMode ? CL_TEXT : CL_TEXT2, a));
+  }
+  textAAc(FT9, "tap to change", 64, 120, fadeIn(CL_TEXT3, a));
+}
+uint32_t pickAt = 0, pickGoneAt = 0; bool pickOn = false;
+void clToast(uint32_t now) {               // messages slide into the bottom strip; the reading stays in view
   bool edit = editUntil && (int32_t)(now - editUntil) < 0;
-  if (edit) {                               // weighting: A / C / Z, the chosen one lit
-    static const char* OPT[3] = {"A", "C", "Z"};
-    for (int i = 0; i < 3; i++) {
-      int x = 11 + i * 38;
-      if (i == wMode) fillRRAA(x, 86, 30, 20, 10, fadeIn(CL_SELECT, a));
-      else { fillRRAA(x, 86, 30, 20, 10, fadeIn(CL_TEXT3, a)); fillRRAA(x + 1, 87, 28, 18, 9, C_BG); }
-      textAAc(FT13, OPT[i], x + 15, 101, fadeIn(i == wMode ? CL_TEXT : CL_TEXT2, a));
-    }
-    textAAc(FT9, "tap to change", 64, 120, fadeIn(CL_TEXT3, a));
+  if (edit) {                               // picker: fades in once when it opens, then stays put while tapping
+    if (!pickOn) { pickOn = true; pickAt = now; }
+    drawPicker(easeIO(sinceMs(now, pickAt) / 150.0f));
     return;
   }
+  if (pickOn) { pickOn = false; pickGoneAt = now; toastUntil = 0; toastFadeAt = 0; }
+  if (pickGoneAt) {
+    float t = sinceMs(now, pickGoneAt) / 200.0f;
+    if (t < 1) { drawPicker(easeIO(1 - t)); return; }
+    pickGoneAt = 0;
+  }
+  bool live = toastUntil && (int32_t)(now - toastUntil) < 0;
+  float a;
+  if (live) a = sinceMs(now, toastAt) / 150.0f;
+  else {
+    if (toastUntil) { toastFadeAt = toastUntil; toastUntil = 0; }
+    if (!toastFadeAt || sinceMs(now, toastFadeAt) >= 200) { toastFadeAt = 0; return; }
+    a = 1.0f - sinceMs(now, toastFadeAt) / 200.0f;
+  }
+  a = easeIO(a);
+  fadeBottom(a);
   int f = textW(FT17, toastBig) <= 120 ? FT17 : FT13;
   bool two = toastSmall[0] != 0;
   textAAc(f, toastBig, 64, two ? 102 : 108, fadeIn(CL_TEXT, a));
@@ -8027,7 +8045,11 @@ void clMeter(uint32_t now, float db, float fastDb) {
     int f = FT54, bl = 72;
     if (warm) strcpy(buf, "---");
     else if (overload) { strcpy(buf, "OVER"); f = FT30; bl = 68; }
-    else snprintf(buf, sizeof(buf), "%.1f", uiDb);
+    else {
+      static float shownNum = 0; static uint32_t numAt = 0;
+      if (!numAt || sinceMs(now, numAt) >= 200 || uiMode != numMode) { shownNum = uiDb; numAt = now; numMode = uiMode; }
+      snprintf(buf, sizeof(buf), "%.1f", shownNum);
+    }
     if (f == FT54 && strlen(buf) > 4) { f = FT46; bl = 70; }
     uint16_t nc = warm ? CL_TEXT3 : (overload || db >= redFrom) ? CL_OVER : CL_TEXT;
     textAAc(f, buf, 64, bl, nc);
@@ -8584,15 +8606,14 @@ static uint16_t lastFrame[128 * 128];
 static bool lastFrameOk = false;
 void pushCanvasServed() {
   uint16_t* b = canvas.getBuffer();
-  int sent = 0;
   for (int y = 0; y < 128; y += 8) {
     uint16_t* row = b + y * 128;
     if (lastFrameOk && memcmp(row, lastFrame + y * 128, 128 * 8 * 2) == 0) continue;   // band unchanged
     oled.drawRGBBitmap(0, y, row, 128, 8);
     memcpy(lastFrame + y * 128, row, 128 * 8 * 2);
-    if (++sent % 4 == 0 && wifiOn && !inServer) { inServer = true; server.handleClient(); inServer = false; }
   }
   lastFrameOk = true;
+  if (wifiOn && !inServer) { inServer = true; server.handleClient(); inServer = false; }   // answer the phone between frames
 }
 void pushCanvas() { oled.drawRGBBitmap(0, 0, canvas.getBuffer(), 128, 128); lastFrameOk = false; }   // full frame (other screens)
 
@@ -9078,7 +9099,7 @@ void loop() {
   if (standby) { if (btn.down) wake(now); m = 0; }   // standby: a press just shows when it comes on next
   if (m == 1) {
     if (editUntil && (int32_t)(now - editUntil) < 0) {             // unlocked: tap changes weighting
-      setWeighting((wMode + 1) % 3);
+      wMode = (wMode + 1) % 3; wDirty = true;   // saved when the picker closes (a flash write per tap stalls the screen)
       editUntil = now + EDIT_TIMEOUT_MS;
       toast(W_NAME[wMode], "Tap to change", EDIT_TIMEOUT_MS);
     } else if (tapPending && now - lastTapAt <= DOUBLE_CLICK_MS) {  // double-click
@@ -9111,7 +9132,7 @@ void loop() {
     tapPending = false;
     toast(W_NAME[wMode], "Double-click first", 1200);
   }
-  if (editUntil && (int32_t)(now - editUntil) >= 0) { editUntil = 0; toastUntil = 0; }
+  if (editUntil && (int32_t)(now - editUntil) >= 0) { editUntil = 0; toastUntil = 0; if (wDirty) { wDirty = false; savePrefs(); } }
 
   // ---- Calibration: 2 s settle, then 5 s measure at 94 dB (flat, before weighting) ----
   if (calState == CAL_SETTLE && now - calT0 > 2000) {

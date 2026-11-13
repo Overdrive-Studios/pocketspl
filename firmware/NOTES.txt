@@ -1,2 +1,2 @@
-Update progress shows once, not twice.
-Pop-ups (weighting, response, WiFi) now show in the bottom strip, so the reading stays in view.
+Weighting buttons stay steady while you tap through A, C and Z.
+The big number updates 5 times a second, so it reads cleanly with no half-drawn digits.
