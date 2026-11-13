@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -77,6 +77,15 @@ jobs:
             '{version:$v, notes:$n, url:$u, size:$s, url_4mb:$u4, size_4mb:$s4}' > site/latest.json
           cat site/latest.json
           printf '<!doctype html><meta charset="utf-8"><title>PocketSPL updates</title><p>PocketSPL software %s. Meters update from the phone page.</p>\n' "$VER" > site/index.html
+
+      - name: Save the build log (only when something failed)
+        if: failure()
+        run: |
+          mkdir -p /tmp/logs && cp build*.log /tmp/logs/ 2>/dev/null || true
+          ls ~/.arduino15/packages/esp32/hardware/esp32/ > /tmp/logs/core.txt 2>&1 || true
+          cd /tmp/logs && git init -q && git checkout -q -b build-logs
+          git -c user.name=ci -c user.email=ci@localhost add -A && git -c user.name=ci -c user.email=ci@localhost commit -qm "log ${GITHUB_RUN_ID}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" build-logs
 
       - uses: actions/upload-pages-artifact@v3
         with:
