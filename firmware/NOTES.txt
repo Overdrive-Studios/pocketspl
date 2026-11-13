@@ -1,2 +1,2 @@
+Fixes Install update doing nothing on iPhone.
 Removes the Bold look. Clean and Studio stay.
-Fixes the phone page saying "Not connected" once the meter has the time.

@@ -155,7 +155,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.3"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.4"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -4690,8 +4690,8 @@ const char PAGE[] PROGMEM =
 "/* the downloaded update is kept on the phone, so Install works later without internet */\n"
 "const fwCache={ mem:{},\n"
 "  db(){ return new Promise((res,rej)=>{ try{ const r=indexedDB.open(\"pocketspl\",1); r.onupgradeneeded=()=>r.result.createObjectStore(\"fw\"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(); }catch(e){ rej(); } }); },\n"
-"  async get(v){ try{ const d=await this.db(); const b=await new Promise(res=>{ const q=d.transaction(\"fw\").objectStore(\"fw\").get(v); q.onsuccess=()=>res(q.result||null); q.onerror=()=>res(null); }); return b||this.mem[v]||null; }catch(e){ return this.mem[v]||null; } },\n"
-"  async put(v,b){ this.mem={[v]:b}; try{ const d=await this.db(); const tx=d.transaction(\"fw\",\"readwrite\"); const s=tx.objectStore(\"fw\"); s.clear(); s.put(b,v); }catch(e){} },\n"
+"  async get(v){ try{ const d=await this.db(); const b=await new Promise(res=>{ const q=d.transaction(\"fw\").objectStore(\"fw\").get(v); q.onsuccess=()=>res(q.result||null); q.onerror=()=>res(null); }); if(this.mem[v]) return this.mem[v]; if(b instanceof ArrayBuffer) return new Blob([b]); return null; }catch(e){ return this.mem[v]||null; } },   // stored as bytes: iPhone can't read a saved Blob back\n"
+"  async put(v,b){ this.mem={[v]:b}; try{ const buf=await b.arrayBuffer(); const d=await this.db(); const tx=d.transaction(\"fw\",\"readwrite\"); const s=tx.objectStore(\"fw\"); s.clear(); s.put(buf,v); }catch(e){} },\n"
 "  async clear(){ this.mem={}; try{ const d=await this.db(); d.transaction(\"fw\",\"readwrite\").objectStore(\"fw\").clear(); }catch(e){} } };\n"
 "function verCmp(a,b){ const pa=String(a).split(\".\").map(Number), pb=String(b).split(\".\").map(Number); for(let i=0;i<3;i++){ const d=(pa[i]||0)-(pb[i]||0); if(d) return d; } return 0; }\n"
 "function newestKnown(){   // the newest version we know of: from the internet check, or remembered by the meter\n"
@@ -4811,7 +4811,9 @@ const char PAGE[] PROGMEM =
 "  const v=newestKnown(); if(!v) return;\n"
 "  if(!confirm(\"Install version \"+v+\"? The meter restarts (about 30 seconds).\")) return;\n"
 "  upd.busy=true; renderUpd();\n"
+"  try{\n"
 "  let blob=await fwCache.get(ck(v));\n"
+"  if(blob){ try{ await Promise.race([blob.slice(0,1).arrayBuffer(), new Promise((_,r)=>setTimeout(r,3000))]); }catch(e){ blob=null; await fwCache.clear(); upd.cached=null; } }   // saved copy unreadable: get it again\n"
 "  if(!blob){\n"
 "    if(!upd.info || upd.info.version!==v){ updDone(false,\"Your phone needs internet to download it first.\"); return; }\n"
 "    updStep(\"Downloading version \"+v+\"…\",0);\n"
@@ -4819,6 +4821,7 @@ const char PAGE[] PROGMEM =
 "    catch(e){ updDone(false,\"Couldn't download the update. Check the phone has internet and try again.\"); return; }\n"
 "  }\n"
 "  await installBlob(blob,v);\n"
+"  }catch(e){ upd.sending=false; updDone(false,\"Something went wrong. Check again, or use Install from a file.\"); }\n"
 "};\n"
 "$(\"updFile\").onchange=async e=>{\n"
 "  const f=e.target.files[0]; e.target.value=\"\"; if(!f) return;\n"
