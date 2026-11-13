@@ -1,0 +1,119 @@
+Config file written to: /home/runner/.arduino15/arduino-cli.yaml
+Downloading index: library_index.tar.bz2 0 B / 4.48 MiB    0.00%Downloading index: library_index.tar.bz2 downloaded
+Downloading index: package_index.tar.bz2 0 B / 111.61 KiB    0.00%Downloading index: package_index.tar.bz2 downloaded
+Downloading index: package_esp32_index.json 0 B / 636.15 KiB    0.00%Downloading index: package_esp32_index.json downloaded
+Downloading missing tool builtin:ctags@5.8-arduino11...
+builtin:ctags@5.8-arduino11 0 B / 108.99 KiB    0.00%builtin:ctags@5.8-arduino11 downloaded
+Installing builtin:ctags@5.8-arduino11...
+Skipping tool configuration....
+builtin:ctags@5.8-arduino11 installed
+Downloading missing tool builtin:dfu-discovery@0.1.2...
+builtin:dfu-discovery@0.1.2 0 B / 1.65 MiB    0.00%builtin:dfu-discovery@0.1.2 downloaded
+Installing builtin:dfu-discovery@0.1.2...
+Skipping tool configuration....
+builtin:dfu-discovery@0.1.2 installed
+Downloading missing tool builtin:mdns-discovery@1.1.0...
+builtin:mdns-discovery@1.1.0 0 B / 3.07 MiB    0.00%builtin:mdns-discovery@1.1.0 downloaded
+Installing builtin:mdns-discovery@1.1.0...
+Skipping tool configuration....
+builtin:mdns-discovery@1.1.0 installed
+Downloading missing tool builtin:serial-discovery@1.5.2...
+builtin:serial-discovery@1.5.2 0 B / 2.06 MiB    0.00%builtin:serial-discovery@1.5.2 downloaded
+Installing builtin:serial-discovery@1.5.2...
+Skipping tool configuration....
+builtin:serial-discovery@1.5.2 installed
+Downloading missing tool builtin:serial-monitor@0.15.0...
+builtin:serial-monitor@0.15.0 0 B / 2.33 MiB    0.00%builtin:serial-monitor@0.15.0 downloaded
+Installing builtin:serial-monitor@0.15.0...
+Skipping tool configuration....
+builtin:serial-monitor@0.15.0 installed
+Downloading index: package_index.tar.bz2 0 B / 111.61 KiB    0.00%Downloading index: package_index.tar.bz2 downloaded
+Downloading index: package_esp32_index.json 0 B / 636.15 KiB    0.00%Downloading index: package_esp32_index.json downloaded
+Downloading packages...
+esp32:esp32-arduino-libs@idf-release_v5.1-632e0c2a 0 B / 295.54 MiB    0.00%esp32:esp32-arduino-libs@idf-release_v5.1-632e0c2a 0 B / 295.54 MiB    0.00%esp32:esp32-arduino-libs@idf-release_v5.1-632e0c2a 65.73 MiB / 295.54 MiB   22.24% 00m01sesp32:esp32-arduino-libs@idf-release_v5.1-632e0c2a 80.00 MiB / 295.54 MiB   27.07% 00m01sesp32:esp32-arduino-libs@idf-release_v5.1-632e0c2a 80.00 MiB / 295.54 MiB   27.07% 00m01sesp32:esp32-arduino-libs@idf-release_v5.1-632e0c2a 123.39 MiB / 295.54 MiB   41.75% 00m01sesp32:esp32-arduino-libs@idf-release_v5.1-632e0c2a 123.39 MiB / 295.54 MiB   41.75% 00m01sesp32:esp32-arduino-libs@idf-release_v5.1-632e0c2a 179.22 MiB / 295.54 MiB   60.64%esp32:esp32-arduino-libs@idf-release_v5.1-632e0c2a 235.46 MiB / 295.54 MiB   79.67%esp32:esp32-arduino-libs@idf-release_v5.1-632e0c2a downloaded
+esp32:esp-x32@2302 0 B / 106.59 MiB    0.00%esp32:esp-x32@2302 0 B / 106.59 MiB    0.00%esp32:esp-x32@2302 61.57 MiB / 106.59 MiB   57.76%esp32:esp-x32@2302 downloaded
+esp32:esp-xs2@2302 0 B / 107.00 MiB    0.00%esp32:esp-xs2@2302 0 B / 107.00 MiB    0.00%esp32:esp-xs2@2302 57.92 MiB / 107.00 MiB   54.13%esp32:esp-xs2@2302 downloaded
+esp32:esp-xs3@2302 0 B / 106.78 MiB    0.00%esp32:esp-xs3@2302 0 B / 106.78 MiB    0.00%esp32:esp-xs3@2302 35.25 MiB / 106.78 MiB   33.01%esp32:esp-xs3@2302 66.87 MiB / 106.78 MiB   62.62%esp32:esp-xs3@2302 downloaded
+esp32:xtensa-esp-elf-gdb@12.1_20231023 0 B / 35.23 MiB    0.00%esp32:xtensa-esp-elf-gdb@12.1_20231023 downloaded
+esp32:esp-rv32@2302 0 B / 245.68 MiB    0.00%esp32:esp-rv32@2302 0 B / 245.68 MiB    0.00%esp32:esp-rv32@2302 56.74 MiB / 245.68 MiB   23.09% 00m01sesp32:esp-rv32@2302 115.26 MiB / 245.68 MiB   46.91%esp32:esp-rv32@2302 174.48 MiB / 245.68 MiB   71.02%esp32:esp-rv32@2302 232.43 MiB / 245.68 MiB   94.61%esp32:esp-rv32@2302 downloaded
+esp32:riscv32-esp-elf-gdb@12.1_20231023 0 B / 34.93 MiB    0.00%esp32:riscv32-esp-elf-gdb@12.1_20231023 downloaded
+esp32:openocd-esp32@v0.12.0-esp32-20240821 0 B / 2.26 MiB    0.00%esp32:openocd-esp32@v0.12.0-esp32-20240821 downloaded
+esp32:esptool_py@4.6 0 B / 96.82 KiB    0.00%esp32:esptool_py@4.6 downloaded
+esp32:mkspiffs@0.2.3 0 B / 49.46 KiB    0.00%esp32:mkspiffs@0.2.3 downloaded
+esp32:mklittlefs@3.0.0-gnu12-dc7f933 0 B / 45.68 KiB    0.00%esp32:mklittlefs@3.0.0-gnu12-dc7f933 downloaded
+arduino:dfu-util@0.11.0-arduino5 0 B / 2.18 MiB    0.00%arduino:dfu-util@0.11.0-arduino5 downloaded
+esp32:esp32@3.0.7 0 B / 23.41 MiB    0.00%esp32:esp32@3.0.7 downloaded
+Installing esp32:esp32-arduino-libs@idf-release_v5.1-632e0c2a...
+Skipping tool configuration....
+esp32:esp32-arduino-libs@idf-release_v5.1-632e0c2a installed
+Installing esp32:esp-x32@2302...
+Skipping tool configuration....
+esp32:esp-x32@2302 installed
+Installing esp32:esp-xs2@2302...
+Skipping tool configuration....
+esp32:esp-xs2@2302 installed
+Installing esp32:esp-xs3@2302...
+Skipping tool configuration....
+esp32:esp-xs3@2302 installed
+Installing esp32:xtensa-esp-elf-gdb@12.1_20231023...
+Skipping tool configuration....
+esp32:xtensa-esp-elf-gdb@12.1_20231023 installed
+Installing esp32:esp-rv32@2302...
+Skipping tool configuration....
+esp32:esp-rv32@2302 installed
+Installing esp32:riscv32-esp-elf-gdb@12.1_20231023...
+Skipping tool configuration....
+esp32:riscv32-esp-elf-gdb@12.1_20231023 installed
+Installing esp32:openocd-esp32@v0.12.0-esp32-20240821...
+Skipping tool configuration....
+esp32:openocd-esp32@v0.12.0-esp32-20240821 installed
+Installing esp32:esptool_py@4.6...
+Skipping tool configuration....
+esp32:esptool_py@4.6 installed
+Installing esp32:mkspiffs@0.2.3...
+Skipping tool configuration....
+esp32:mkspiffs@0.2.3 installed
+Installing esp32:mklittlefs@3.0.0-gnu12-dc7f933...
+Skipping tool configuration....
+esp32:mklittlefs@3.0.0-gnu12-dc7f933 installed
+Installing arduino:dfu-util@0.11.0-arduino5...
+Skipping tool configuration....
+arduino:dfu-util@0.11.0-arduino5 installed
+Installing platform esp32:esp32@3.0.7...
+Skipping platform configuration....
+Platform esp32:esp32@3.0.7 installed
+Downloading Adafruit TouchScreen@1.1.6...
+Adafruit TouchScreen@1.1.6 0 B / 10.79 KiB    0.00%Adafruit TouchScreen@1.1.6 downloaded
+Installing Adafruit TouchScreen@1.1.6...
+Installed Adafruit TouchScreen@1.1.6
+Downloading Adafruit TSC2007@1.1.2...
+Adafruit TSC2007@1.1.2 0 B / 579.52 KiB    0.00%Adafruit TSC2007@1.1.2 downloaded
+Installing Adafruit TSC2007@1.1.2...
+Installed Adafruit TSC2007@1.1.2
+Downloading Adafruit SH110X@2.1.15...
+Adafruit SH110X@2.1.15 0 B / 23.91 KiB    0.00%Adafruit SH110X@2.1.15 downloaded
+Installing Adafruit SH110X@2.1.15...
+Installed Adafruit SH110X@2.1.15
+Downloading Adafruit SSD1351 library@1.3.3...
+Adafruit SSD1351 library@1.3.3 0 B / 13.82 KiB    0.00%Adafruit SSD1351 library@1.3.3 downloaded
+Installing Adafruit SSD1351 library@1.3.3...
+Installed Adafruit SSD1351 library@1.3.3
+Downloading Adafruit ILI9341@1.7.0...
+Adafruit ILI9341@1.7.0 0 B / 44.31 KiB    0.00%Adafruit ILI9341@1.7.0 downloaded
+Installing Adafruit ILI9341@1.7.0...
+Installed Adafruit ILI9341@1.7.0
+Downloading Adafruit GFX Library@1.13.0...
+Adafruit GFX Library@1.13.0 0 B / 349.28 KiB    0.00%Adafruit GFX Library@1.13.0 downloaded
+Installing Adafruit GFX Library@1.13.0...
+Installed Adafruit GFX Library@1.13.0
+Downloading Adafruit BusIO@1.17.4...
+Adafruit BusIO@1.17.4 0 B / 30.36 KiB    0.00%Adafruit BusIO@1.17.4 downloaded
+Installing Adafruit BusIO@1.17.4...
+Installed Adafruit BusIO@1.17.4
+Downloading Adafruit STMPE610@1.1.6...
+Adafruit STMPE610@1.1.6 0 B / 287.36 KiB    0.00%Adafruit STMPE610@1.1.6 downloaded
+Installing Adafruit STMPE610@1.1.6...
+Installed Adafruit STMPE610@1.1.6
+Already installed Adafruit GFX Library@1.13.0
+Already installed Adafruit BusIO@1.17.4
+Already installed Adafruit BusIO@1.17.4

@@ -1,0 +1,26 @@
+/home/runner/work/pocketspl/pocketspl/firmware/PocketSPL/PocketSPL.ino: In function 'void alertTask(void*)':
+/home/runner/work/pocketspl/pocketspl/firmware/PocketSPL/PocketSPL.ino:5477:30: error: 'class NetworkClientSecure' has no member named 'useBuiltinCACertBundle'; did you mean 'setCACertBundle'?
+ 5477 |     NetworkClientSecure c; c.useBuiltinCACertBundle();
+      |                              ^~~~~~~~~~~~~~~~~~~~~~
+      |                              setCACertBundle
+
+[92mUsed library[0m             [92mVersion[0m [90mPath[0m
+[93mSPI[0m                      3.0.7   [90m/home/runner/.arduino15/packages/esp32/hardware/esp32/3.0.7/libraries/SPI[0m
+[93mWire[0m                     3.0.7   [90m/home/runner/.arduino15/packages/esp32/hardware/esp32/3.0.7/libraries/Wire[0m
+[93mWiFi[0m                     3.0.7   [90m/home/runner/.arduino15/packages/esp32/hardware/esp32/3.0.7/libraries/WiFi[0m
+[93mNetworking[0m               3.0.7   [90m/home/runner/.arduino15/packages/esp32/hardware/esp32/3.0.7/libraries/Network[0m
+[93mWebServer[0m                3.0.7   [90m/home/runner/.arduino15/packages/esp32/hardware/esp32/3.0.7/libraries/WebServer[0m
+[93mFS[0m                       3.0.7   [90m/home/runner/.arduino15/packages/esp32/hardware/esp32/3.0.7/libraries/FS[0m
+[93mESPmDNS[0m                  3.0.7   [90m/home/runner/.arduino15/packages/esp32/hardware/esp32/3.0.7/libraries/ESPmDNS[0m
+[93mPreferences[0m              3.0.7   [90m/home/runner/.arduino15/packages/esp32/hardware/esp32/3.0.7/libraries/Preferences[0m
+[93mUpdate[0m                   3.0.7   [90m/home/runner/.arduino15/packages/esp32/hardware/esp32/3.0.7/libraries/Update[0m
+[93mLittleFS[0m                 3.0.7   [90m/home/runner/.arduino15/packages/esp32/hardware/esp32/3.0.7/libraries/LittleFS[0m
+[93mAdafruit GFX Library[0m     1.13.0  [90m/home/runner/Arduino/libraries/Adafruit_GFX_Library[0m
+[93mAdafruit BusIO[0m           1.17.4  [90m/home/runner/Arduino/libraries/Adafruit_BusIO[0m
+[93mAdafruit SSD1351 library[0m 1.3.3   [90m/home/runner/Arduino/libraries/Adafruit_SSD1351_library[0m
+[93mNetworkClientSecure[0m      3.0.7   [90m/home/runner/.arduino15/packages/esp32/hardware/esp32/3.0.7/libraries/NetworkClientSecure[0m
+[93mHTTPClient[0m               3.0.7   [90m/home/runner/.arduino15/packages/esp32/hardware/esp32/3.0.7/libraries/HTTPClient[0m
+
+[92mUsed platform[0m [92mVersion[0m [90mPath[0m
+[93mesp32:esp32[0m   3.0.7   [90m/home/runner/.arduino15/packages/esp32/hardware/esp32/3.0.7[0m
+Error during build: exit status 1
