@@ -121,7 +121,7 @@ jobs:
         run: |
           git clone -q --depth 1 --branch build-logs "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" logs 2>/dev/null || { mkdir logs; cd logs; git init -q; git checkout -q -b build-logs; cd ..; }
           cd logs
-          printf 'run %s\nbuild %s\ndeploy %s\n' "$GITHUB_RUN_ID" "${{ needs.build.result }}" "${{ needs.deploy.result }}" > result.txt
+          printf 'run %s sha %s\nbuild %s\ndeploy %s\n' "$GITHUB_RUN_ID" "$GITHUB_SHA" "${{ needs.build.result }}" "${{ needs.deploy.result }}" > result.txt
           git -c user.name=ci -c user.email=ci@localhost add -A
           git -c user.name=ci -c user.email=ci@localhost commit -qm "result ${GITHUB_RUN_ID}"
           git push -q "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" build-logs
