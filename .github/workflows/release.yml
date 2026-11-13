@@ -34,6 +34,7 @@ jobs:
 
       - name: Install ESP32 core and libraries
         run: |
+          exec > >(tee setup.log) 2>&1
           arduino-cli config init
           arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
           arduino-cli core update-index
@@ -81,7 +82,7 @@ jobs:
       - name: Save the build log (only when something failed)
         if: failure()
         run: |
-          mkdir -p /tmp/logs && cp build*.log /tmp/logs/ 2>/dev/null || true
+          mkdir -p /tmp/logs && cp build*.log setup.log /tmp/logs/ 2>/dev/null || true
           ls ~/.arduino15/packages/esp32/hardware/esp32/ > /tmp/logs/core.txt 2>&1 || true
           cd /tmp/logs && git init -q && git checkout -q -b build-logs
           git -c user.name=ci -c user.email=ci@localhost add -A && git -c user.name=ci -c user.email=ci@localhost commit -qm "log ${GITHUB_RUN_ID}"
