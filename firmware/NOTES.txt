@@ -1,2 +1,2 @@
+Pop-ups (weighting, response, WiFi) now show in the bottom strip, so the reading stays in view.
 Fixes Install update doing nothing on iPhone.
-Removes the Bold look. Clean and Studio stay.

@@ -155,7 +155,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.4"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.5"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -7837,8 +7837,8 @@ const AAFont* const AAF[] = { &F54, &F46, &F30, &F17, &F13, &F9 };
 enum { FT54 = 0, FT46, FT30, FT17, FT13, FT9 };
 const int8_t AAF_TRACK[] = { -2, -2, -1, 0, 0, 0 };   // big digits sit a little tighter
 
-#define CL_SURFACE  0x18E3
-#define CL_SURFACE2 0x2965
+#define CL_SURFACE  0x1903   // dark grey (a touch more green so it reads grey, not purple, on the OLED)
+#define CL_SURFACE2 0x2985
 #define CL_TEXT     0xFFFF
 #define CL_TEXT2    0x8C72
 #define CL_TEXT3    0x52AB
@@ -7980,7 +7980,7 @@ const char* clRightWord(char* buf, size_t n, uint16_t& col) {
 }
 
 // ---- pop-up card (toasts) ----
-void clToast(uint32_t now) {
+void clToast(uint32_t now) {               // messages slide into the bottom strip; the reading stays in view
   bool live = toastUntil && (int32_t)(now - toastUntil) < 0;
   float a;
   if (live) a = clamp01((now - toastAt) / 150.0f);
@@ -7990,23 +7990,25 @@ void clToast(uint32_t now) {
     a = 1.0f - (now - toastFadeAt) / 200.0f;
   }
   a = a * a * (3 - 2 * a);                  // ease in and out
-  fillRRAA(7, 26, 114, 76, 10, fadeIn(CL_SURFACE, a));
+  uint8_t k = (uint8_t)(a * 255 + 0.5f);    // fade the bar and footer down to black
+  uint16_t* buf = canvas.getBuffer();
+  for (int i = 82 * 128; i < 128 * 128; i++) buf[i] = blend565(buf[i], C_BG, k);
   bool edit = editUntil && (int32_t)(now - editUntil) < 0;
-  if (edit) {                               // weighting picker
+  if (edit) {                               // weighting: A / C / Z, the chosen one lit
     static const char* OPT[3] = {"A", "C", "Z"};
-    textAAc(FT9, "WEIGHTING", 64, 43, fadeIn(CL_TEXT2, a));
     for (int i = 0; i < 3; i++) {
-      int x = 13 + i * 34;
-      fillRRAA(x + 1, 52, 32, 22, 11, fadeIn(i == wMode ? CL_SELECT : CL_SURFACE2, a));
-      textAAc(FT13, OPT[i], x + 17, 68, fadeIn(i == wMode ? CL_TEXT : CL_TEXT2, a));
+      int x = 11 + i * 38;
+      if (i == wMode) fillRRAA(x, 86, 30, 20, 10, fadeIn(CL_SELECT, a));
+      else { fillRRAA(x, 86, 30, 20, 10, fadeIn(CL_TEXT3, a)); fillRRAA(x + 1, 87, 28, 18, 9, C_BG); }
+      textAAc(FT13, OPT[i], x + 15, 101, fadeIn(i == wMode ? CL_TEXT : CL_TEXT2, a));
     }
-    textAAc(FT9, "tap to change", 64, 90, fadeIn(CL_TEXT3, a));
+    textAAc(FT9, "tap to change", 64, 120, fadeIn(CL_TEXT3, a));
     return;
   }
-  int f = textW(FT17, toastBig) <= 104 ? FT17 : FT13;
+  int f = textW(FT17, toastBig) <= 120 ? FT17 : FT13;
   bool two = toastSmall[0] != 0;
-  textAAc(f, toastBig, 64, two ? 63 : 70, fadeIn(CL_TEXT, a));
-  if (two) textAAc(FT9, toastSmall, 64, 81, fadeIn(CL_TEXT2, a));
+  textAAc(f, toastBig, 64, two ? 102 : 108, fadeIn(CL_TEXT, a));
+  if (two) textAAc(FT9, toastSmall, 64, 119, fadeIn(CL_TEXT2, a));
 }
 
 // ---- main meter: FAST / SLOW / LEQ ----
@@ -8053,8 +8055,8 @@ void clMeter(uint32_t now, float db, float fastDb) {
     if (warm || snap.maxF[wMode] <= 0) strcpy(buf, "--"); else snprintf(buf, sizeof(buf), "%.1f", toDb(snap.maxF[wMode]));
     clFooter("MAX", buf, CL_TEXT, right, rc);
   }
-  clLimitFrame();
   clToast(now);
+  clLimitFrame();
 }
 
 // ---- RTA: 31 bands, 20 Hz - 20 kHz, 30 - 110 dB ----
@@ -8086,8 +8088,8 @@ void clRta(uint32_t now, float fastDb) {
   if (warm) strcpy(buf, "--"); else if (fastDb > OVERLOAD_DB) strcpy(buf, "OVER"); else snprintf(buf, sizeof(buf), "%.1f", fastDb);
   uint16_t rc; const char* right = clRightWord(rb, sizeof(rb), rc);
   clFooter("LEVEL", buf, warm ? CL_TEXT3 : levelColourSmooth(fastDb), right, rc);
-  clLimitFrame();
   clToast(now);
+  clLimitFrame();
 }
 
 // ---- GIG: the limit (or 15 min) Leq, the bar against the limit, dose ----
@@ -8126,8 +8128,8 @@ void clGig(uint32_t now) {
   snprintf(buf, sizeof(buf), "%.0f%%", d);
   uint16_t rc; const char* right = clRightWord(rb, sizeof(rb), rc);
   clFooter("DOSE", buf, d >= 100 ? CL_OVER : d >= 50 ? CL_CAUTION : CL_TEXT, right, rc);
-  clLimitFrame();
   clToast(now);
+  clLimitFrame();
 }
 
 // ---- other screens ----
