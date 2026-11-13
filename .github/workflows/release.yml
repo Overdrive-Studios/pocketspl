@@ -37,32 +37,27 @@ jobs:
           arduino-cli config init
           arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
           arduino-cli core update-index
-          arduino-cli core install esp32:esp32@${ESP32_CORE}
-          arduino-cli lib install "Adafruit SSD1351 library" "Adafruit GFX Library" "Adafruit BusIO"
+          arduino-cli core install esp32:esp32@${ESP32_CORE} || { echo "::error::Couldn't install the ESP32 core"; exit 1; }
+          arduino-cli lib install "Adafruit SSD1351 library" "Adafruit GFX Library" "Adafruit BusIO" || { echo "::error::Couldn't install the screen libraries"; exit 1; }
 
-      - name: Find the partition schemes
-        id: parts
-        run: |
-          BT=$(ls ~/.arduino15/packages/esp32/hardware/esp32/*/boards.txt | head -1)
-          find_id () {   # board, text in the menu name
-            grep -E "^$1\.menu\.PartitionScheme\.[^.]+=" "$BT" | grep -F "$2" | head -1 | sed -E "s/^$1\.menu\.PartitionScheme\.([^.=]+)=.*/\1/"
-          }
-          P8=$(find_id adafruit_feather_esp32s3_nopsram "3MB APP/1.5MB SPIFFS")
-          P4=$(find_id adafruit_feather_esp32s3 "Minimal SPIFFS")
-          echo "8MB board: $P8   4MB board: $P4"
-          test -n "$P8" && test -n "$P4"
-          echo "p8=$P8" >> "$GITHUB_OUTPUT"
-          echo "p4=$P4" >> "$GITHUB_OUTPUT"
-
+      # Partition layout only sets the size limit for the update file, so set it directly:
+      #   8MB Feather: default_8MB  (3MB app x2, 1.5MB logs)
+      #   4MB Feather: min_spiffs   (1.9MB app x2, 128KB logs)
       - name: Build for the 8MB Feather (ADA5323)
         run: |
-          arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32s3_nopsram:PartitionScheme=${{ steps.parts.outputs.p8 }} \
-            --output-dir out8 firmware/PocketSPL
+          arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32s3_nopsram \
+            --build-property build.partitions=default_8MB \
+            --build-property upload.maximum_size=3342336 \
+            --output-dir out8 firmware/PocketSPL 2>&1 | tee build8.log || true
+          test -f out8/PocketSPL.ino.bin || { echo "::error::8MB build failed"; grep -E "error|Error" build8.log | head -20 | sed 's/^/::error::/'; exit 1; }
 
       - name: Build for the 4MB / 2MB PSRAM Feather (ADA5477)
         run: |
-          arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32s3:PartitionScheme=${{ steps.parts.outputs.p4 }} \
-            --output-dir out4 firmware/PocketSPL
+          arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32s3 \
+            --build-property build.partitions=min_spiffs \
+            --build-property upload.maximum_size=1966080 \
+            --output-dir out4 firmware/PocketSPL 2>&1 | tee build4.log || true
+          test -f out4/PocketSPL.ino.bin || { echo "::error::4MB build failed"; grep -E "error|Error" build4.log | head -20 | sed 's/^/::error::/'; exit 1; }
 
       - name: Make the update site
         run: |
