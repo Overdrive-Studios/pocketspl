@@ -1,0 +1,98 @@
+# Builds the PocketSPL software and publishes it to
+# https://overdrive-studios.github.io/pocketspl/latest.json
+# Meters find new versions there through the phone page.
+#
+# To release: change FW_VERSION in firmware/PocketSPL/PocketSPL.ino (and NOTES.txt), commit, push.
+name: Build and publish firmware
+
+on:
+  push:
+    branches: [main]
+    paths: ["firmware/**", ".github/workflows/release.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  ESP32_CORE: "3.0.7"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Arduino CLI
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Install ESP32 core and libraries
+        run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32@${ESP32_CORE}
+          arduino-cli lib install "Adafruit SSD1351 library" "Adafruit GFX Library" "Adafruit BusIO"
+
+      - name: Find the partition schemes
+        id: parts
+        run: |
+          BT=$(ls ~/.arduino15/packages/esp32/hardware/esp32/*/boards.txt | head -1)
+          find_id () {   # board, text in the menu name
+            grep -E "^$1\.menu\.PartitionScheme\.[^.]+=" "$BT" | grep -F "$2" | head -1 | sed -E "s/^$1\.menu\.PartitionScheme\.([^.=]+)=.*/\1/"
+          }
+          P8=$(find_id adafruit_feather_esp32s3_nopsram "3MB APP/1.5MB SPIFFS")
+          P4=$(find_id adafruit_feather_esp32s3 "Minimal SPIFFS")
+          echo "8MB board: $P8   4MB board: $P4"
+          test -n "$P8" && test -n "$P4"
+          echo "p8=$P8" >> "$GITHUB_OUTPUT"
+          echo "p4=$P4" >> "$GITHUB_OUTPUT"
+
+      - name: Build for the 8MB Feather (ADA5323)
+        run: |
+          arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32s3_nopsram:PartitionScheme=${{ steps.parts.outputs.p8 }} \
+            --output-dir out8 firmware/PocketSPL
+
+      - name: Build for the 4MB / 2MB PSRAM Feather (ADA5477)
+        run: |
+          arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32s3:PartitionScheme=${{ steps.parts.outputs.p4 }} \
+            --output-dir out4 firmware/PocketSPL
+
+      - name: Make the update site
+        run: |
+          VER=$(grep -oP '#define FW_VERSION "\K[^"]+' firmware/PocketSPL/PocketSPL.ino)
+          echo "Version $VER"
+          mkdir -p site/fw
+          cp out8/PocketSPL.ino.bin "site/fw/PocketSPL-$VER.bin"
+          cp out4/PocketSPL.ino.bin "site/fw/PocketSPL-$VER-4mb.bin"
+          grep -q "POCKETSPL-FW PS-1 $VER" "site/fw/PocketSPL-$VER.bin"
+          grep -q "POCKETSPL-FLASH 8MB;" "site/fw/PocketSPL-$VER.bin"
+          grep -q "POCKETSPL-FLASH 4MB;" "site/fw/PocketSPL-$VER-4mb.bin"
+          NOTES=""
+          [ -f firmware/NOTES.txt ] && NOTES=$(cat firmware/NOTES.txt)
+          jq -n --arg v "$VER" --arg n "$NOTES" \
+            --arg u "fw/PocketSPL-$VER.bin" --argjson s $(stat -c%s "site/fw/PocketSPL-$VER.bin") \
+            --arg u4 "fw/PocketSPL-$VER-4mb.bin" --argjson s4 $(stat -c%s "site/fw/PocketSPL-$VER-4mb.bin") \
+            '{version:$v, notes:$n, url:$u, size:$s, url_4mb:$u4, size_4mb:$s4}' > site/latest.json
+          cat site/latest.json
+          printf '<!doctype html><meta charset="utf-8"><title>PocketSPL updates</title><p>PocketSPL software %s. Meters update from the phone page.</p>\n' "$VER" > site/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
