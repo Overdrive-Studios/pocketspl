@@ -155,7 +155,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.5"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.6"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -4763,7 +4763,7 @@ const char PAGE[] PROGMEM =
 "}\n"
 "function updStep(text,pct){ const w=Math.max(0,Math.min(100,pct))+\"%\";\n"
 "  $(\"updProg\").hidden=false; $(\"updStep\").textContent=text; $(\"updBar\").style.width=w; $(\"updMsg\").hidden=false; $(\"updMsg\").textContent=\"\";\n"
-"  const b=$(\"updBanner\"); b.hidden=false; b.className=\"updbanner\"; clearTimeout(b._t);   // shows on every page while updating\n"
+"  const b=$(\"updBanner\"); b.hidden=$(\"updBox\").offsetParent!==null; b.className=\"updbanner\"; clearTimeout(b._t);   // shows on the other pages while updating (the Software page has its own)\n"
 "  $(\"updBanText\").textContent=\"Software update: \"+text; $(\"updBanProg\").hidden=false; $(\"updBanBar\").style.width=w; }\n"
 "function sendFirmware(blob, onProg){\n"
 "  if(window.__simUpload) return window.__simUpload(blob,onProg);\n"
@@ -4802,7 +4802,7 @@ const char PAGE[] PROGMEM =
 "}\n"
 "function updDone(good,msg){\n"
 "  upd.busy=false; upd.note=msg; $(\"updProg\").hidden=true;\n"
-"  const b=$(\"updBanner\"); b.hidden=false; b.className=\"updbanner \"+(good?\"good\":\"bad\"); $(\"updBanText\").textContent=msg; $(\"updBanProg\").hidden=true;\n"
+"  const b=$(\"updBanner\"); b.hidden=$(\"updBox\").offsetParent!==null; b.className=\"updbanner \"+(good?\"good\":\"bad\"); $(\"updBanText\").textContent=msg; $(\"updBanProg\").hidden=true;\n"
 "  clearTimeout(b._t); b._t=setTimeout(()=>{ b.hidden=true; },good?8000:15000);\n"
 "  toast(good?\"Updated\":\"Not updated\"); renderUpd();\n"
 "}\n"
