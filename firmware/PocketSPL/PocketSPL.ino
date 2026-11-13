@@ -54,7 +54,7 @@
   SCREEN LOOK
     The "Clean" look is the new one: black screen, colour only for the level, smooth text and
     shapes, and a reading that glides instead of jumping (the screen only: MAX, Leq, the limit,
-    alerts and the log always use the true value). Studio and Bold are still on the phone
+    alerts and the log always use the true value). Studio is still on the phone
     (Settings > General > Look). Loading this version switches the meter to Clean once.
 
   CONTROLS (one button)
@@ -155,7 +155,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.2"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.3"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -208,7 +208,7 @@ volatile uint32_t micFlatSince = 0;         // when the mic signal went complete
 bool lastDenied = false, lastPinOk = false; // for the next reply to the phone
 const float   DEFAULT_CAL_OFFSET = 0.0f;
 const uint8_t DEFAULT_BRIGHTNESS = 10;     // 1..15
-const uint8_t DEFAULT_THEME = 0;           // 0 = Clean (the new look), 1 = Studio, 2 = Bold (changeable on the phone)
+const uint8_t DEFAULT_THEME = 0;           // 0 = Clean (the new look), 1 = Studio (changeable on the phone)
 const int     DEFAULT_AMBER = 85, DEFAULT_RED = 95;
 const float   BAR_MIN_DB = 60.0f, BAR_MAX_DB = 110.0f;
 const int     BATT_LOW_PCT = 15, BATT_CRIT_PCT = 5;
@@ -3210,8 +3210,9 @@ const GFXglyph BoldBigGlyphs[] PROGMEM = {
 const GFXfont BoldBig PROGMEM = {(uint8_t*)BoldBigBitmaps, (GFXglyph*)BoldBigGlyphs, 0x20, 0x7E, 29};
 
 // ---------------- Themes ----------------
-enum { TH_CLEAN = 0, TH_STUDIO = 1, TH_BOLD = 2, NUM_THEMES = 3 };
-const char* THEME_NAME[NUM_THEMES] = {"Clean", "Studio", "Bold"};
+enum { TH_CLEAN = 0, TH_STUDIO = 1, TH_BOLD = 2 };   // Bold has been retired: no longer offered
+const int NUM_THEMES = 2;
+const char* THEME_NAME[NUM_THEMES] = {"Clean", "Studio"};
 uint8_t theme = DEFAULT_THEME;
 struct Look { const GFXfont *small, *label, *readout, *big; };
 Look L;
@@ -4065,7 +4066,7 @@ const char PAGE[] PROGMEM =
 "body.th-bold.dark .looks button.on{box-shadow:0 0 0 2px #fff}\n"
 "\n"
 "/* look picker */\n"
-".looks{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}\n"
+".looks{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}\n"
 ".looks button{border:0;border-radius:12px;padding:0 0 8px;background:var(--recess);color:var(--ink);font-weight:600;font-size:14px;cursor:pointer;overflow:hidden;box-shadow:0 0 0 2px transparent}\n"
 ".looks button.on{box-shadow:0 0 0 2px var(--accent)}\n"
 ".looks button i{display:flex;align-items:center;justify-content:center;height:54px;margin-bottom:6px;font-style:normal;font-size:24px}\n"
@@ -4152,7 +4153,7 @@ const char PAGE[] PROGMEM =
 "\n"
 "  <div class=\"card\" data-tab=\"settings\" data-sub=\"general\">\n"
 "    <h2>Look</h2>\n"
-"    <div class=\"looks\" id=\"looks\"><button type=\"button\" class=\"lk0\" data-v=\"0\"><i>89.7</i>Clean</button><button type=\"button\" class=\"lk1\" data-v=\"1\"><i>89.7</i>Studio</button><button type=\"button\" class=\"lk2\" data-v=\"2\"><i>89.7</i>Bold</button></div>\n"
+"    <div class=\"looks\" id=\"looks\"><button type=\"button\" class=\"lk0\" data-v=\"0\"><i>89.7</i>Clean</button><button type=\"button\" class=\"lk1\" data-v=\"1\"><i>89.7</i>Studio</button></div>\n"
 "    <div class=\"ctl\"><span>Appearance</span><div class=\"seg\" id=\"segMode\"><button type=\"button\" data-v=\"auto\">Auto</button><button type=\"button\" data-v=\"light\">Light</button><button type=\"button\" data-v=\"dark\">Dark</button></div></div>\n"
 "    <p class=\"note\">The look changes the phone and the meter's screen. Appearance is just for this phone: Auto follows the phone's light or dark setting.</p>\n"
 "  </div>\n"
@@ -4330,7 +4331,7 @@ const char PAGE[] PROGMEM =
 "function cv(n){ return CVc[n] || (CVc[n]=getComputedStyle(document.body).getPropertyValue(n).trim() || \"#888\"); }\n"
 "function cvFont(){ return (cv(\"--font-ui\")||\"sans-serif\")+\", sans-serif\"; }\n"
 "function applyLook(i){\n"
-"  i = (i>=0 && i<3) ? i : 1; if(i===look) return; look=i;\n"
+"  i = (i>=0 && i<2) ? i : 0; if(i===look) return; look=i;\n"
 "  LOOKS.forEach((n,k)=>document.body.classList.toggle(\"th-\"+n, k===i));\n"
 "  CVc={}; try{ localStorage.setItem(\"pocketspl-look\", i); }catch(e){}\n"
 "  document.querySelectorAll(\"#looks button\").forEach(b=>b.classList.toggle(\"on\", +b.dataset.v===i));\n"
@@ -4348,7 +4349,7 @@ const char PAGE[] PROGMEM =
 "if(darkQ) (darkQ.addEventListener ? darkQ.addEventListener(\"change\",applyMode) : darkQ.addListener(applyMode));\n"
 "document.querySelectorAll(\"#segMode button\").forEach(b=>b.onclick=()=>{ mode=b.dataset.v; try{ localStorage.setItem(\"pocketspl-mode\",mode); }catch(e){} applyMode(); toast(mode===\"auto\"?\"Appearance follows the phone\":mode===\"light\"?\"Light appearance\":\"Dark appearance\"); });\n"
 "applyMode();\n"
-"document.querySelectorAll(\"#looks button\").forEach(b=>b.onclick=()=>{ const v=+b.dataset.v; applyLook(v); lookPending=Date.now(); set(\"theme=\"+v, [\"Clean\",\"Studio\",\"Bold\"][v]+\" look\"); });\n"
+"document.querySelectorAll(\"#looks button\").forEach(b=>b.onclick=()=>{ const v=+b.dataset.v; applyLook(v); lookPending=Date.now(); set(\"theme=\"+v, [\"Clean\",\"Studio\"][v]+\" look\"); });\n"
 "let lookPending=0;\n"
 "const RING_LEN=570;\n"
 "function drawRing(){\n"
@@ -7827,7 +7828,7 @@ const AAFont F9 = { 95, F9_g, F9_bmp };
 // rounded shapes, and a reading that glides instead of jumping.
 // The measurement itself is never smoothed: MAX, Leq, the limit alarm,
 // alerts and the log all use the true value. Only the screen eases.
-// The Studio and Bold looks are still there (Settings > General > Look).
+// The Studio look is still there (Settings > General > Look).
 // ======================================================================
 const AAFont* const AAF[] = { &F54, &F46, &F30, &F17, &F13, &F9 };
 enum { FT54 = 0, FT46, FT30, FT17, FT13, FT9 };
