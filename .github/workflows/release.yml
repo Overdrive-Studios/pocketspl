@@ -20,9 +20,6 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
-env:
-  ESP32_CORE: "3.0.7"
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -38,7 +35,7 @@ jobs:
           arduino-cli config init
           arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
           arduino-cli core update-index
-          arduino-cli core install esp32:esp32@${ESP32_CORE} || { echo "::error::Couldn't install the ESP32 core"; exit 1; }
+          arduino-cli core install esp32:esp32 || { echo "::error::Couldn't install the ESP32 core"; exit 1; }
           arduino-cli lib install "Adafruit SSD1351 library" "Adafruit GFX Library" "Adafruit BusIO" || { echo "::error::Couldn't install the screen libraries"; exit 1; }
 
       # Partition layout only sets the size limit for the update file, so set it directly:
