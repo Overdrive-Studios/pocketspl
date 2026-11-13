@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>PocketSPL Help</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script type="module" src="https://unpkg.com/esp-web-tools@10.1.1/dist/web/install-button.js?module"></script>
+<style>
+  :root{
+    --bg:#000; --card:#1c1c1e; --raised:#2c2c2e; --rule:#2f2f33;
+    --ink:#f5f5f7; --mute:#98989f; --faint:#5e5e64;
+    --green:#34c759; --amber:#ff9f0a; --red:#ff453a; --blue:#0a84ff;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.55 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+       padding:env(safe-area-inset-top) 16px calc(32px + env(safe-area-inset-bottom))}
+  main{max-width:680px;margin:0 auto}
+  header{padding:40px 0 24px}
+  .brand{font-weight:700;font-size:34px;letter-spacing:-.02em;margin:0}
+  .brand span{color:var(--mute)}
+  .tag{color:var(--mute);margin:6px 0 0}
+  .ver{display:inline-block;margin-top:14px;padding:4px 12px;border-radius:99px;background:var(--raised);color:var(--mute);font-size:13px;font-weight:500}
+  nav{display:flex;gap:8px;overflow-x:auto;padding:4px 0 20px;scrollbar-width:none}
+  nav::-webkit-scrollbar{display:none}
+  nav a{flex:none;padding:8px 14px;border-radius:99px;background:var(--card);color:var(--ink);text-decoration:none;font-size:14px;font-weight:500}
+  section{background:var(--card);border-radius:20px;padding:22px 22px 18px;margin:0 0 14px}
+  h2{font-size:20px;font-weight:600;margin:0 0 12px;letter-spacing:-.01em}
+  h3{font-size:15px;font-weight:600;margin:18px 0 6px;color:var(--ink)}
+  p{margin:0 0 12px;color:#d6d6db}
+  .note{color:var(--mute);font-size:14px}
+  a{color:var(--blue)}
+  ol,ul{margin:0 0 12px;padding-left:20px;color:#d6d6db}
+  li{margin:4px 0}
+  .rows{border-top:1px solid var(--rule);margin:4px 0 12px}
+  .row{display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-bottom:1px solid var(--rule)}
+  .row b{font-weight:600;color:var(--ink);flex:none}
+  .row span{color:var(--mute);text-align:right}
+  .lv{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 12px}
+  .lv i{font-style:normal;font-size:13px;font-weight:600;padding:5px 11px;border-radius:99px;color:#000}
+  .g{background:var(--green)} .a{background:var(--amber)} .r{background:var(--red)}
+  code{font:500 14px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--raised);padding:2px 6px;border-radius:6px}
+  .flash{display:grid;gap:10px;margin:8px 0 12px}
+  esp-web-install-button button[slot=activate]{width:100%;padding:14px 16px;border:0;border-radius:14px;background:var(--blue);color:#fff;font:600 16px Inter,sans-serif;cursor:pointer}
+  esp-web-install-button.alt button[slot=activate]{background:var(--raised);color:var(--ink)}
+  .unsup{color:var(--amber);font-size:14px}
+  footer{color:var(--faint);font-size:13px;text-align:center;padding:18px 0 0}
+  footer a{color:var(--mute)}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1 class="brand"><span>Pocket</span>SPL</h1>
+    <p class="tag">Help and updates for your PocketSPL meter.</p>
+    <div class="ver">Latest software: v__VERSION__</div>
+  </header>
+
+  <nav>
+    <a href="#start">Getting started</a>
+    <a href="#button">The button</a>
+    <a href="#phone">Phone</a>
+    <a href="#cal">Calibration</a>
+    <a href="#updates">Updates</a>
+    <a href="#trouble">Troubleshooting</a>
+    <a href="#repair">USB repair</a>
+  </nav>
+
+  <section id="start">
+    <h2>Getting started</h2>
+    <p>Slide the switch on. After the start-up screen the big number is the sound level in dB, and the bar under it moves with the level:</p>
+    <div class="lv"><i class="g">Comfortable</i><i class="a">Getting loud</i><i class="r">Too loud</i></div>
+    <p>Where amber and red start is up to you (phone: Settings → General).</p>
+    <div class="rows">
+      <div class="row"><b>Top left</b><span>Weighting: dB(A), dB(C) or dB(Z)</span></div>
+      <div class="row"><b>Top middle</b><span>WiFi. Blue when your phone can reach the meter</span></div>
+      <div class="row"><b>Top right</b><span>Battery</span></div>
+      <div class="row"><b>Bottom</b><span>MAX (or time, in LEQ) and the response</span></div>
+    </div>
+    <p class="note">Charge with any USB-C charger.</p>
+  </section>
+
+  <section id="button">
+    <h2>The button</h2>
+    <div class="rows">
+      <div class="row"><b>Hold 1 s, let go</b><span>FAST → SLOW → LEQ → RTA → GIG</span></div>
+      <div class="row"><b>Double-click, then tap</b><span>Weighting A → C → Z</span></div>
+      <div class="row"><b>Hold 3 s</b><span>WiFi on / off</span></div>
+    </div>
+    <p class="note">A single tap on its own does nothing, so a knock in a bag can't change anything. Choosing LEQ restarts LEQ and MAX.</p>
+    <h3>The screens</h3>
+    <ul>
+      <li><b>FAST / SLOW</b>: the level right now. FAST follows every hit, SLOW is steadier.</li>
+      <li><b>LEQ</b>: the average level since you chose it, with how long it's been running.</li>
+      <li><b>RTA</b>: 31 bars, low notes on the left to high on the right.</li>
+      <li><b>GIG</b>: the average over the last 15 minutes (or your limit's time), against your limit, plus the day's dose.</li>
+    </ul>
+  </section>
+
+  <section id="phone">
+    <h2>Your phone</h2>
+    <ol>
+      <li>Make sure WiFi is on (hold the button 3 s if the WiFi symbol isn't showing).</li>
+      <li>On your phone, join the WiFi network <b>PocketSPL</b>, password <code>pocketspl</code>.</li>
+      <li>Open <b>192.168.4.1</b> in Safari or Chrome.</li>
+    </ol>
+    <p>You'll see the live level, a 60-second graph, the RTA, the gig log and every setting.</p>
+    <h3>Better: use your own WiFi</h3>
+    <p>On the phone page, Settings → WiFi, add your home, studio or venue WiFi. The meter joins it at switch-on and shows its address on screen (for example 192.168.1.47). On an iPhone you can also open <b>pocketspl.local</b>. If none of your saved networks is around, it makes its own network again.</p>
+    <p class="note">Tip: in Safari, Share → Add to Home Screen makes the page open like an app.</p>
+  </section>
+
+  <section id="cal">
+    <h2>Calibration</h2>
+    <p>To check or redo the calibration you need a 94 dB / 1 kHz sound calibrator.</p>
+    <ol>
+      <li>Phone: Settings → General → Calibration → <b>Calibrate with 94 dB calibrator</b>.</li>
+      <li>Fit the calibrator over the mic holes, switch it on, tap OK.</li>
+      <li>Hold it still for 7 seconds. The meter saves the result itself.</li>
+    </ol>
+    <p class="note">You can also nudge it by hand with the −1 / −.1 / +.1 / +1 buttons against a meter you trust. <b>Back to factory calibration</b> undoes any change.</p>
+  </section>
+
+  <section id="updates">
+    <h2>Software updates</h2>
+    <ol>
+      <li>Open the phone page while your phone has internet (mobile data, or the meter on your own WiFi).</li>
+      <li>Settings → Software. If there's a new version, tap <b>Install update</b>.</li>
+      <li>Keep the page open. The meter installs it and restarts in about 30 seconds.</li>
+    </ol>
+    <p class="note">Updates keep your settings, calibration, saved networks and saved gigs. Once the phone has downloaded an update it can install it later without internet.</p>
+  </section>
+
+  <section id="trouble">
+    <h2>Troubleshooting</h2>
+    <h3>Forgot the meter's WiFi name or password</h3>
+    <p>Switch off. Hold the button, switch on, and keep holding for 5 seconds. The WiFi goes back to <b>PocketSPL</b> / <code>pocketspl</code>.</p>
+    <h3>The phone page says "Not connected"</h3>
+    <p>Check the WiFi symbol on the meter. Grey means your phone has left the meter's network. Phones do this when a network has no internet. Rejoin it, and turn mobile data off while you use the meter, or put the meter on your own WiFi.</p>
+    <h3>The screen says "Mic fault"</h3>
+    <p>The microphone isn't sending anything. Switch off and on again. If it stays, contact us.</p>
+    <h3>CLIP</h3>
+    <p>It's louder than the mic can measure (around 120 dB). The reading is too low while CLIP shows.</p>
+    <h3>Factory reset</h3>
+    <p>Phone: Settings → General → Factory reset. Puts every setting back as new and deletes saved gigs. The factory calibration is kept.</p>
+  </section>
+
+  <section id="repair">
+    <h2>USB repair</h2>
+    <p>If the meter won't start properly or an update was interrupted, you can reload its software from a computer.</p>
+    <ol>
+      <li>Use <b>Chrome</b> or <b>Edge</b> on a Mac or Windows computer.</li>
+      <li>Plug the meter in with a USB-C data cable and switch it on.</li>
+      <li>Press the button for your meter below, pick the port that appears, and follow the steps.</li>
+    </ol>
+    <div class="flash">
+      <esp-web-install-button manifest="manifest-8mb.json">
+        <button slot="activate">Repair PocketSPL (8MB board)</button>
+        <span slot="unsupported" class="unsup">This browser can't do USB repair. Use Chrome or Edge on a computer.</span>
+        <span slot="not-allowed" class="unsup">USB repair needs the page opened over https.</span>
+      </esp-web-install-button>
+      <esp-web-install-button manifest="manifest-4mb.json" class="alt">
+        <button slot="activate">Repair PocketSPL (4MB board)</button>
+        <span slot="unsupported"></span>
+        <span slot="not-allowed"></span>
+      </esp-web-install-button>
+    </div>
+    <p class="note">Not sure which board you have? Contact us with the serial number from Settings → General. If it asks to erase the meter, choose not to, so your settings and calibration are kept.</p>
+  </section>
+
+  <section>
+    <h2>Contact</h2>
+    <p>PocketSPL is made by Overdrive Music Studio, Toowoomba.</p>
+    <p><a href="https://www.instagram.com/studio_overdrive/" target="_blank" rel="noopener">Instagram</a>&emsp;<a href="https://www.facebook.com/profile.php?id=61558215059242" target="_blank" rel="noopener">Facebook</a></p>
+  </section>
+
+  <footer>A sound level indicator for live sound. Not a certified Class 1 or Class 2 sound level meter.</footer>
+</main>
+</body>
+</html>

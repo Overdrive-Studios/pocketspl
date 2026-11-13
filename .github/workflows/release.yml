@@ -8,7 +8,7 @@ name: Build and publish firmware
 on:
   push:
     branches: [main]
-    paths: ["firmware/**", ".github/workflows/release.yml"]
+    paths: ["firmware/**", "web/**", ".github/workflows/release.yml"]
   workflow_dispatch:
 
 permissions:
@@ -74,7 +74,18 @@ jobs:
             --arg u4 "fw/PocketSPL-$VER-4mb.bin" --argjson s4 $(stat -c%s "site/fw/PocketSPL-$VER-4mb.bin") \
             '{version:$v, notes:$n, url:$u, size:$s, url_4mb:$u4, size_4mb:$s4}' > site/latest.json
           cat site/latest.json
-          printf '<!doctype html><meta charset="utf-8"><title>PocketSPL updates</title><p>PocketSPL software %s. Meters update from the phone page.</p>\n' "$VER" > site/index.html
+          sed "s/__VERSION__/$VER/g" web/index.html > site/index.html          # the help page
+          # USB repair (ESP Web Tools): whole-flash images, one per board
+          for B in 8 4; do
+            M=out$B/PocketSPL.ino.merged.bin
+            if [ -f "$M" ]; then
+              cp "$M" "site/fw/PocketSPL-$VER-${B}mb-full.bin"
+              jq -n --arg v "$VER" --arg p "fw/PocketSPL-$VER-${B}mb-full.bin" \
+                '{name:"PocketSPL", version:$v, new_install_prompt_erase:true, builds:[{chipFamily:"ESP32-S3", parts:[{path:$p, offset:0}]}]}' > "site/manifest-${B}mb.json"
+            else
+              echo "::warning::No merged image for the ${B}MB board, USB repair button won't work"
+            fi
+          done
 
       - name: Save the build log (only when something failed)
         if: failure()
