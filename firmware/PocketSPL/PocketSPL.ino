@@ -155,7 +155,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.1"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.2"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -5216,7 +5216,7 @@ void sendState() {
   lastDenied = false; lastPinOk = false;
   const char* mode = netMode == NET_STA ? "sta" : netMode == NET_JOINING ? "joining" : netMode == NET_AP ? "ap" : "off";
   {                                          // gig mode
-    char g[48];
+    char g[128];                             // big enough for the log line with a real clock time
     s += "\"roll\":[";
     for (int k = 0; k < 3; k++) {
       s += k ? ",[" : "[";

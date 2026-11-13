@@ -1,2 +1,3 @@
+Fixes the phone page saying "Not connected" once the meter has the time.
 New look: smoother screen, cleaner text and colours.
 Phone page is more responsive and the meter's WiFi holds the connection better.
