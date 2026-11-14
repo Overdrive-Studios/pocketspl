@@ -1,2 +1,2 @@
+Smoother phone meter: the number, ring, bar and 60-second graph now glide instead of stepping.
 Turn your phone sideways and the 60-second graph fills the screen.
-Saved gigs: tap View to see the gig right in the app.
