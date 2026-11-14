@@ -155,7 +155,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.12"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.13"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3804,7 +3804,7 @@ const char PAGE[] PROGMEM =
 ".schrow span{font-size:14px;color:var(--mute)}\n"
 ".schrow .x{padding:8px 11px}\n"
 ".schbtns{display:flex;gap:8px}.schbtns .btn{flex:1;text-align:center}\n"
-"canvas.logoprev{width:128px;height:128px;aspect-ratio:1/1;image-rendering:pixelated;background:#000;border-radius:12px;margin:4px auto 12px}\n"
+"canvas.logoprev{width:128px;height:128px;aspect-ratio:1/1;image-rendering:pixelated;background:#000;border-radius:4px;margin:4px auto 12px}\n"
 "#schState{font-weight:600}\n"
 "body:not(.wired) .wiredonly{display:none!important}\n"
 ".check input{width:20px;height:20px;accent-color:var(--ink)}\n"
@@ -4168,7 +4168,7 @@ const char PAGE[] PROGMEM =
 "    <canvas id=\"logoPrev\" width=\"128\" height=\"128\" class=\"logoprev\"></canvas>\n"
 "    <p class=\"note\" id=\"logoNote\">No logo yet. One you add shows on the meter after PocketSPL each time it starts.</p>\n"
 "    <div class=\"schbtns\"><label class=\"btn\" data-lock>Choose image<input type=\"file\" id=\"logoFile\" accept=\"image/*\" hidden></label><button class=\"btn\" id=\"logoShow\" type=\"button\" hidden>Show on meter</button><button class=\"btn\" id=\"logoDel\" type=\"button\" data-lock hidden>Remove</button></div>\n"
-"    <p class=\"note\">PNG or JPG. It's shrunk to fit the meter's small screen, so simple, bold logos work best. Transparent parts show as black. A factory reset keeps the logo.</p>\n"
+"    <p class=\"note\">PNG or JPG. It fills the meter's screen, with the logo's own background colour reaching the edges. Simple, bold logos work best. Transparent parts show as black. A factory reset keeps the logo.</p>\n"
 "  </div>\n"
 "\n"
 "  <div class=\"card\" data-tab=\"settings\" data-sub=\"general\">\n"
@@ -5137,9 +5137,21 @@ const char PAGE[] PROGMEM =
 "  const f=e.target.files[0]; e.target.value=\"\"; if(!f) return;\n"
 "  const img=new Image(), u=URL.createObjectURL(f);\n"
 "  try{ await new Promise((ok,bad)=>{ img.onload=ok; img.onerror=bad; img.src=u; }); }catch(_){ toast(\"Couldn't read that image\"); return; }\n"
-"  const s=Math.min(120/img.naturalWidth, 100/img.naturalHeight), w=Math.max(1,Math.round(img.naturalWidth*s)), h=Math.max(1,Math.round(img.naturalHeight*s));\n"
+"  // fill the whole screen: the logo's own background colour (from its corners) goes edge to edge\n"
+"  const t=document.createElement(\"canvas\"); t.width=img.naturalWidth; t.height=img.naturalHeight; const tg=t.getContext(\"2d\"); tg.drawImage(img,0,0);\n"
+"  let bg=[0,0,0], n=0, sum=[0,0,0];\n"
+"  for(const [x,y] of [[0,0],[t.width-1,0],[0,t.height-1],[t.width-1,t.height-1]]){ const q=tg.getImageData(x,y,1,1).data; if(q[3]>=128){ sum[0]+=q[0]; sum[1]+=q[1]; sum[2]+=q[2]; n++; } }\n"
+"  const solid=n>=3; if(solid) bg=sum.map(x=>Math.round(x/n));   // see-through corners: stays black\n"
+"  // trim the empty margin around the logo so it's as big as possible on the screen\n"
+"  const all=tg.getImageData(0,0,t.width,t.height).data; let x0=t.width, y0=t.height, x1=-1, y1=-1;\n"
+"  for(let y=0;y<t.height;y++) for(let x=0;x<t.width;x++){ const i=(y*t.width+x)*4;\n"
+"    const ink = solid ? (Math.abs(all[i]-bg[0])+Math.abs(all[i+1]-bg[1])+Math.abs(all[i+2]-bg[2])>48 && all[i+3]>=128) : all[i+3]>=40;\n"
+"    if(ink){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } }\n"
+"  if(x1<0){ x0=0; y0=0; x1=t.width-1; y1=t.height-1; }\n"
+"  const cw=x1-x0+1, ch=y1-y0+1;\n"
+"  const w=128, h=128, s=Math.min(112/cw, 112/ch), dw=cw*s, dh=ch*s;\n"
 "  const c=document.createElement(\"canvas\"); c.width=w; c.height=h; const g=c.getContext(\"2d\");\n"
-"  g.fillStyle=\"#000\"; g.fillRect(0,0,w,h); g.imageSmoothingQuality=\"high\"; g.drawImage(img,0,0,w,h); URL.revokeObjectURL(u);\n"
+"  g.fillStyle=\"rgb(\"+bg.join(\",\")+\")\"; g.fillRect(0,0,w,h); g.imageSmoothingQuality=\"high\"; g.drawImage(img,x0,y0,cw,ch,(w-dw)/2,(h-dh)/2,dw,dh); URL.revokeObjectURL(u);\n"
 "  const d=g.getImageData(0,0,w,h).data, buf=new ArrayBuffer(8+w*h*2), v=new DataView(buf);\n"
 "  [80,76,71,49].forEach((x,i)=>v.setUint8(i,x)); v.setUint16(4,w,true); v.setUint16(6,h,true);\n"
 "  for(let i=0;i<w*h;i++) v.setUint16(8+i*2,((d[i*4]>>3)<<11)|((d[i*4+1]>>2)<<5)|(d[i*4+2]>>3),true);\n"
