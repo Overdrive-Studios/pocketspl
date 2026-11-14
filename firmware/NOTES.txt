@@ -1,2 +1,2 @@
-Home Screen icon: add the page to your Home Screen and it gets the PocketSPL icon (or your start-up logo if you added one).
-The 60-second graph is sharp and never squashed, upright or sideways.
+Level graph follows the level, so quiet rooms below 60 dB show properly.
+Pinch the graph to zoom: sideways for time (up to 5 minutes), up and down for the level. Double-tap to reset.
