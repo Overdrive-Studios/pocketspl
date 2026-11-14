@@ -155,7 +155,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.21"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.22"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -4600,13 +4600,16 @@ const char PAGE[] PROGMEM =
 "  // zoomed out (more readings than pixels): one column per pixel showing its highest and lowest.\n"
 "  // The style only switches at clearly different zoom levels, and the columns are tied to the clock,\n"
 "  // so the graph doesn't flicker between styles or shimmer as it scrolls.\n"
-"  const pxMs=span/w;\n"
-"  if(!gz.cols && pxMs>80) gz.cols=true; else if(gz.cols && pxMs<45) gz.cols=false;\n"
+"  const pxMs=span/w;                                       // 2+ readings per pixel: columns; otherwise a line\n"
+"  if(!gz.cols && pxMs>110) gz.cols=true; else if(gz.cols && pxMs<75) gz.cols=false;\n"
 "  if(gz.cols){\n"
 "    const cols=new Map();\n"
-"    for(const p of pts){ const k=Math.floor(p.t/pxMs); const e=cols.get(k); if(!e) cols.set(k,[p.v,p.v]); else { if(p.v<e[0])e[0]=p.v; if(p.v>e[1])e[1]=p.v; } }\n"
-"    g.lineWidth=Math.max(1.2,1.6); g.lineCap=\"butt\";\n"
-"    for(const [k,[a,b]] of cols){ const xx=x((k+0.5)*pxMs); if(xx<-2||xx>w+2) continue; const ya=y(a), yb=y(b);\n"
+"    for(const p of pts){ const k=Math.floor(p.t/pxMs); const e=cols.get(k); if(!e) cols.set(k,[p.v,p.v,p.v,p.t]); else { if(p.v<e[0])e[0]=p.v; if(p.v>e[1])e[1]=p.v; e[2]=p.v; e[3]=p.t; } }\n"
+"    g.lineWidth=1.6; g.lineCap=\"butt\";\n"
+"    let prev=null, prevT=0;\n"
+"    for(const [k,e] of cols){ const xx=x((k+0.5)*pxMs);\n"
+"      let a=e[0], b=e[1]; if(prev!==null && e[3]-prevT<2000+pxMs){ if(prev<a)a=prev; if(prev>b)b=prev; }   // join to the column before: one unbroken trace\n"
+"      prev=e[2]; prevT=e[3]; if(xx<-2||xx>w+2) continue; const ya=y(a), yb=y(b);\n"
 "      g.strokeStyle=colr(b); g.beginPath(); g.moveTo(xx,Math.max(ya,yb+1.5)); g.lineTo(xx,yb); g.stroke(); }\n"
 "    return;\n"
 "  }\n"

@@ -1,2 +1,2 @@
-Smoother RTA on the phone: the bars glide (quick up, slower down, like a hardware analyser) and it fits the screen when the phone is sideways.
-The meter screen's top line lights amber at the amber level.
+Fixes the level graph breaking into dots and dashes (mostly after turning the phone sideways): it is one unbroken trace again.
+Smoother RTA that fits the screen sideways.
