@@ -1,2 +1,2 @@
-Saved gigs: tap View to see the gig right in the app (totals, a graph and every minute), with Done to come back.
-Save as spreadsheet inside it says what to open the file in.
+Turn your phone sideways and the 60-second graph fills the screen.
+Saved gigs: tap View to see the gig right in the app.

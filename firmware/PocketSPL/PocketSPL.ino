@@ -155,7 +155,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.9"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.10"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3891,10 +3891,12 @@ const char PAGE[] PROGMEM =
 ".tabs button.on::before{background:var(--ink)}\n"
 ".tabs button .badge{position:absolute;top:7px;left:calc(50% + 9px);width:7px;height:7px;border-radius:50%;background:var(--green)}\n"
 "\n"
+"/* phone turned sideways: the 60-second graph uses the full width and most of the screen height */\n"
+"@media (orientation:landscape) and (max-height:500px){ .graphcard canvas{aspect-ratio:auto;height:calc(100vh - 120px);min-height:180px} }\n"
 "/* iPad and wider: two columns */\n"
 "@media (min-width:760px){\n"
 "  .wrap{max-width:1040px;display:grid;grid-template-columns:1fr 1fr;gap:12px 20px;align-items:start}\n"
-"  header,.limbanner,.updbanner,.card.subnav,.card[data-tab=\"rta\"]{grid-column:1/-1}\n"
+"  header,.limbanner,.updbanner,.card.subnav,.card[data-tab=\"rta\"],.card.graphcard{grid-column:1/-1}\n"
 "  .card{margin-bottom:0}\n"
 "  .big{font-size:150px}\n"
 "}\n"
@@ -4143,7 +4145,7 @@ const char PAGE[] PROGMEM =
 "    <p class=\"note opens\"><b>View</b> shows a gig right here: the totals, a graph and every minute. To keep it, tap <b>Save as spreadsheet</b>. It opens in <b>Numbers or Excel</b> on iPhone, or <b>Excel or Google Sheets</b> on a computer.</p>\n"
 "  </div>\n"
 "\n"
-"  <div class=\"card\" data-tab=\"meter\">\n"
+"  <div class=\"card graphcard\" data-tab=\"meter\">\n"
 "    <h2>Last 60 seconds</h2>\n"
 "    <canvas id=\"graph\" width=\"900\" height=\"300\"></canvas>\n"
 "  </div>\n"
@@ -4526,7 +4528,8 @@ const char PAGE[] PROGMEM =
 "$(\"freeze\").onclick=()=>{ frozen=!frozen; $(\"freeze\").textContent=frozen?\"Frozen\":\"Freeze\"; $(\"freeze\").classList.toggle(\"on\",frozen); render(); };\n"
 "\n"
 "function drawGraph(){\n"
-"  const c=$(\"graph\"), g=c.getContext(\"2d\"), w=c.width, h=c.height, now=Date.now();\n"
+"  const c0=$(\"graph\"); if(c0.clientWidth){ const wantH=Math.max(200,Math.round(900*c0.clientHeight/c0.clientWidth)); if(Math.abs(c0.height-wantH)>2) c0.height=wantH; }   // match the shape on screen (taller when sideways)\n"
+"  const c=c0, g=c.getContext(\"2d\"), w=c.width, h=c.height, now=Date.now();\n"
 "  g.clearRect(0,0,w,h);\n"
 "  const lo=40, hi=120, y=v=>h-(Math.max(lo,Math.min(hi,v))-lo)/(hi-lo)*h;\n"
 "  g.font=\"500 30px \"+cvFont(); g.fillStyle=cv(\"--mute\"); g.strokeStyle=cv(\"--rule\"); g.lineWidth=1;\n"
