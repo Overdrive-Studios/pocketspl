@@ -155,7 +155,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.16"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.17"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -4159,7 +4159,7 @@ const char PAGE[] PROGMEM =
 "  <div class=\"card graphcard\" data-tab=\"meter\">\n"
 "    <h2 id=\"graphTitle\">Last 60 seconds</h2>\n"
 "    <canvas id=\"graph\" width=\"900\" height=\"300\"></canvas>\n"
-"    <p class=\"note\">Pinch to zoom in on any spike or dip: sideways for time (3 seconds to 5 minutes), up and down for the level. Drag sideways to look back. Double-tap to go back to live.</p>\n"
+"    <p class=\"note\">Pinch to zoom in on any spike or dip: sideways for time (3 seconds to 15 minutes), up and down for the level. Drag sideways to look back. Double-tap to go back to live.</p>\n"
 "  </div>\n"
 "\n"
 "  <div class=\"card subnav\" data-tab=\"settings\">\n"
@@ -4573,7 +4573,7 @@ const char PAGE[] PROGMEM =
 "  g.font=\"500 12px \"+cvFont(); g.lineWidth=1;\n"
 "  const step=(hi-lo)<=12?2:(hi-lo)<=30?5:(hi-lo)<=80?10:20;\n"
 "  for(let v=Math.ceil(lo/step)*step; v<=hi; v+=step){ if(y(v)<10) continue; g.strokeStyle=cv(\"--rule\"); g.beginPath(); g.moveTo(0,y(v)); g.lineTo(w,y(v)); g.stroke(); g.fillStyle=cv(\"--mute\"); g.fillText(v,3,y(v)-3); }\n"
-"  const ts=gz.span<=6?1:gz.span<=20?5:gz.span<=60?10:gz.span<=150?30:60;     // time marks, counted back from now\n"
+"  const ts=gz.span<=6?1:gz.span<=20?5:gz.span<=60?10:gz.span<=150?30:gz.span<=330?60:gz.span<=660?120:300;     // time marks, counted back from now\n"
 "  g.fillStyle=cv(\"--faint\"); g.textAlign=\"center\";\n"
 "  for(let s=Math.ceil((now-R)/1000/ts)*ts; now-s*1000>=L; s+=ts){ if(s<=0) continue; const xx=x(now-s*1000); if(xx>w-4) continue;\n"
 "    g.strokeStyle=cv(\"--rule\"); g.globalAlpha=.5; g.beginPath(); g.moveTo(xx,0); g.lineTo(xx,gh); g.stroke(); g.globalAlpha=1;\n"
@@ -4619,14 +4619,14 @@ const char PAGE[] PROGMEM =
 "    if(gz.pinch && e.touches.length===2){ e.preventDefault(); const P=gz.pinch, [a,b]=e.touches;\n"
 "      if(P.vert){ const k=P.dy/d(a,b,\"clientY\"), half=Math.max(3,Math.min(60,(P.hi-P.lo)/2*k));   // fingers apart up/down: zoom the dB scale\n"
 "        gz.lo=Math.max(0,P.mid-half); gz.hi=Math.min(150,gz.lo+2*half); }\n"
-"      else { gz.span=Math.max(3,Math.min(300,P.span*P.dx/d(a,b,\"clientX\")));                    // apart sideways: zoom the time where your fingers are\n"
+"      else { gz.span=Math.max(3,Math.min(900,P.span*P.dx/d(a,b,\"clientX\")));                    // apart sideways: zoom the time where your fingers are\n"
 "        gz.end=clampEnd(P.tAt+(1-P.mx)*gz.span*1000); graphTitle(); }\n"
 "      return; }\n"
 "    if(gz.drag && e.touches.length===1){ const dx=e.touches[0].clientX-gz.drag.x; if(Math.abs(dx)<4) return;   // drag sideways: look back in time\n"
 "      gz.end=clampEnd(gz.drag.end-dx/gz.drag.w*gz.span*1000); graphTitle(); }\n"
 "  },{passive:false});\n"
 "  c.addEventListener(\"touchend\",e=>{ if(e.touches.length<2) gz.pinch=null; if(!e.touches.length) gz.drag=null; });\n"
-"  c.addEventListener(\"wheel\",e=>{ if(!e.ctrlKey) return; e.preventDefault(); gz.span=Math.max(3,Math.min(300,gz.span*Math.exp(e.deltaY*0.01))); graphTitle(); },{passive:false});   // trackpad pinch on a computer\n"
+"  c.addEventListener(\"wheel\",e=>{ if(!e.ctrlKey) return; e.preventDefault(); gz.span=Math.max(3,Math.min(900,gz.span*Math.exp(e.deltaY*0.01))); graphTitle(); },{passive:false});   // trackpad pinch on a computer\n"
 "  graphTitle();\n"
 "})();\n"
 "/* 20 readings a second: the meter sends what it measured since the last update */\n"
@@ -4664,7 +4664,7 @@ const char PAGE[] PROGMEM =
 "    if(!r.ok) throw 0;\n"
 "    st=await r.json(); ok=true; lastOk=Date.now();\n"
 "    addReadings();\n"
-"    const cut=Date.now()-301000; while(hist.length && hist[0].t<cut) hist.shift();   // 5 minutes for the zoomable graph\n"
+"    const cut=Date.now()-901000; while(hist.length && hist[0].t<cut) hist.shift();   // 15 minutes for the zoomable graph (kept on the phone)\n"
 "    return true;\n"
 "  }catch(e){ if(Date.now()-lastOk>6000) ok=false; return false; }\n"
 "}\n"
