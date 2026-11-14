@@ -1,2 +1,2 @@
-The line across the top of the meter screen now lights amber when the level reaches amber, as well as red when it reaches red.
-Fixes the level graph flickering when zoomed out.
+Smoother RTA on the phone: the bars glide (quick up, slower down, like a hardware analyser) and it fits the screen when the phone is sideways.
+The meter screen's top line lights amber at the amber level.
