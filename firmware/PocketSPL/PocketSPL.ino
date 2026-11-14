@@ -155,7 +155,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.11"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.12"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3803,7 +3803,8 @@ const char PAGE[] PROGMEM =
 ".schrow select,.schrow input{background:var(--recess);border:1px solid var(--rule);color:var(--ink);border-radius:var(--r-ctl);padding:10px 6px;font:500 15px \"Barlow SC\",sans-serif;width:100%;min-width:0}\n"
 ".schrow span{font-size:14px;color:var(--mute)}\n"
 ".schrow .x{padding:8px 11px}\n"
-".schbtns{display:flex;gap:8px}.schbtns .btn{flex:1}\n"
+".schbtns{display:flex;gap:8px}.schbtns .btn{flex:1;text-align:center}\n"
+"canvas.logoprev{width:128px;height:128px;aspect-ratio:1/1;image-rendering:pixelated;background:#000;border-radius:12px;margin:4px auto 12px}\n"
 "#schState{font-weight:600}\n"
 "body:not(.wired) .wiredonly{display:none!important}\n"
 ".check input{width:20px;height:20px;accent-color:var(--ink)}\n"
@@ -4163,6 +4164,14 @@ const char PAGE[] PROGMEM =
 "  </div>\n"
 "\n"
 "  <div class=\"card\" data-tab=\"settings\" data-sub=\"general\">\n"
+"    <h2>Start-up logo</h2>\n"
+"    <canvas id=\"logoPrev\" width=\"128\" height=\"128\" class=\"logoprev\"></canvas>\n"
+"    <p class=\"note\" id=\"logoNote\">No logo yet. One you add shows on the meter after PocketSPL each time it starts.</p>\n"
+"    <div class=\"schbtns\"><label class=\"btn\" data-lock>Choose image<input type=\"file\" id=\"logoFile\" accept=\"image/*\" hidden></label><button class=\"btn\" id=\"logoShow\" type=\"button\" hidden>Show on meter</button><button class=\"btn\" id=\"logoDel\" type=\"button\" data-lock hidden>Remove</button></div>\n"
+"    <p class=\"note\">PNG or JPG. It's shrunk to fit the meter's small screen, so simple, bold logos work best. Transparent parts show as black. A factory reset keeps the logo.</p>\n"
+"  </div>\n"
+"\n"
+"  <div class=\"card\" data-tab=\"settings\" data-sub=\"general\">\n"
 "    <h2>Alarm and screen</h2>\n"
 "    <div data-lock>\n"
 "    <label class=\"check\"><input type=\"checkbox\" id=\"limOn\"> Limit alarm</label>\n"
@@ -4393,7 +4402,7 @@ const char PAGE[] PROGMEM =
 "\n"
 "let held=false;\n"
 "function render(){\n"
-"  if(st){ renderUpd(); renderLock(); renderSchedule(); renderAlerts(); }\n"
+"  if(st){ renderUpd(); renderLock(); renderSchedule(); renderAlerts(); if(st.logo!==logoSeen){ logoSeen=st.logo; loadLogoPrev(); } }\n"
 "  $(\"dot\").classList.toggle(\"ok\", ok);\n"
 "  $(\"conn\").textContent = ok ? (st&&st.standby ? \"Standby until \"+(st.next||\"--\") : \"Live\") : \"Not connected\";\n"
 "  $(\"meter\").classList.toggle(\"off\", !ok);\n"
@@ -5112,6 +5121,40 @@ const char PAGE[] PROGMEM =
 "    requestAnimationFrame(()=>chart(v.querySelector(\"canvas\"),mins,amb,red));\n"
 "  };\n"
 "})();\n"
+"/* ---- start-up logo ---- */\n"
+"var logoSeen=null;\n"
+"async function loadLogoPrev(){\n"
+"  const c=$(\"logoPrev\"), g=c.getContext(\"2d\"); g.fillStyle=\"#000\"; g.fillRect(0,0,128,128);\n"
+"  const has=!!(st&&st.logo); $(\"logoDel\").hidden=!has; $(\"logoShow\").hidden=!has;\n"
+"  $(\"logoNote\").textContent = has ? \"Shows on the meter after PocketSPL each time it starts.\" : \"No logo yet. One you add shows on the meter after PocketSPL each time it starts.\";\n"
+"  if(!has) return;\n"
+"  try{ const r=await fetch(\"/api/logo.bin\",{cache:\"no-store\"}); if(!r.ok) return; const b=new DataView(await r.arrayBuffer());\n"
+"    const w=b.getUint16(4,true), h=b.getUint16(6,true), im=g.createImageData(w,h);\n"
+"    for(let i=0;i<w*h;i++){ const v=b.getUint16(8+i*2,true); im.data[i*4]=((v>>11)&31)*255/31; im.data[i*4+1]=((v>>5)&63)*255/63; im.data[i*4+2]=(v&31)*255/31; im.data[i*4+3]=255; }\n"
+"    g.putImageData(im,(128-w)>>1,(128-h)>>1); }catch(e){}\n"
+"}\n"
+"$(\"logoFile\").onchange=async e=>{\n"
+"  const f=e.target.files[0]; e.target.value=\"\"; if(!f) return;\n"
+"  const img=new Image(), u=URL.createObjectURL(f);\n"
+"  try{ await new Promise((ok,bad)=>{ img.onload=ok; img.onerror=bad; img.src=u; }); }catch(_){ toast(\"Couldn't read that image\"); return; }\n"
+"  const s=Math.min(120/img.naturalWidth, 100/img.naturalHeight), w=Math.max(1,Math.round(img.naturalWidth*s)), h=Math.max(1,Math.round(img.naturalHeight*s));\n"
+"  const c=document.createElement(\"canvas\"); c.width=w; c.height=h; const g=c.getContext(\"2d\");\n"
+"  g.fillStyle=\"#000\"; g.fillRect(0,0,w,h); g.imageSmoothingQuality=\"high\"; g.drawImage(img,0,0,w,h); URL.revokeObjectURL(u);\n"
+"  const d=g.getImageData(0,0,w,h).data, buf=new ArrayBuffer(8+w*h*2), v=new DataView(buf);\n"
+"  [80,76,71,49].forEach((x,i)=>v.setUint8(i,x)); v.setUint16(4,w,true); v.setUint16(6,h,true);\n"
+"  for(let i=0;i<w*h;i++) v.setUint16(8+i*2,((d[i*4]>>3)<<11)|((d[i*4+1]>>2)<<5)|(d[i*4+2]>>3),true);\n"
+"  const fd=new FormData(); fd.append(\"logo\",new Blob([buf]),\"logo.bin\");\n"
+"  toast(\"Sending the logo…\");\n"
+"  try{ const r=await fetch(\"/api/logo?x=1\"+pinQ(),{method:\"POST\",body:fd}); const j=await r.json();\n"
+"    if(!j.ok){ toast(j.msg||\"Couldn't save the logo\"); return; }\n"
+"    toast(\"Logo saved. Showing it on the meter now\"); logoSeen=null; await call(\"/api/state\"); render();\n"
+"  }catch(_){ toast(\"Not connected\"); }\n"
+"};\n"
+"$(\"logoDel\").onclick=async()=>{ if(!confirm(\"Remove the start-up logo?\")) return;\n"
+"  try{ const r=await fetch(\"/api/logodel?x=1\"+pinQ(),{cache:\"no-store\"}); const j=await r.json();\n"
+"    if(j.denied){ toast(\"Locked: enter the PIN in Settings → General → Lock\"); return; }\n"
+"    toast(\"Logo removed\"); logoSeen=null; await call(\"/api/state\"); render(); }catch(_){ toast(\"Not connected\"); } };\n"
+"$(\"logoShow\").onclick=async()=>{ try{ await fetch(\"/api/logoshow\",{cache:\"no-store\"}); toast(\"Showing the logo on the meter\"); }catch(_){ toast(\"Not connected\"); } };\n"
 "/* ---- pages ---- */\n"
 "const TABS=[\"meter\",\"rta\",\"gig\",\"settings\"], SUBS=[\"general\",\"wifi\",\"software\"];\n"
 "let sub=\"general\"; try{ sub=localStorage.getItem(\"pocketspl-sub\")||\"general\"; }catch(e){} if(!SUBS.includes(sub)) sub=\"general\";\n"
@@ -5354,6 +5397,7 @@ void sendState() {
   s += "\"lock\":"; s += lockPin.length() ? "true," : "false,";
   s += "\"micfault\":"; s += micFaulty() ? "true," : "false,";
   s += "\"fs\":"; s += fsOk ? "true," : "false,";
+  s += "\"logo\":"; s += hasLogo() ? "true," : "false,";
   if (factoryCalSet) { char fc[32]; snprintf(fc, sizeof(fc), "\"fcal\":%.2f,", factoryCal); s += fc; } else s += "\"fcal\":null,";
   {                                          // clock + on/off schedule
     char cb[32]; int wm = weekMinuteNow();
@@ -6038,6 +6082,84 @@ void handleOldLogCsv() {                   // a saved log as a spreadsheet
   sendLogCsv(fn, h.t0, h.first, (int)h.kept, h.nmk, true);
 }
 
+// ---------------- Start-up logo (uploaded from the phone, kept in the meter's storage) ----------------
+// File: "PLG1", width and height (2 bytes each), then width x height RGB565 pixels. Shown after the
+// PocketSPL start-up screen. A factory reset keeps it (it's the supplier's branding, like calibration).
+const char* LOGO_PATH = "/logo.bin";
+const char* LOGO_TMP  = "/logo.tmp";
+File logoUp; String logoErr; bool logoShowReq = false;
+bool hasLogo() { return fsOk && LittleFS.exists(LOGO_PATH); }
+bool readLogoHdr(File& f, uint16_t& w, uint16_t& h) {
+  uint8_t hd[8];
+  if (f.read(hd, 8) != 8 || memcmp(hd, "PLG1", 4)) return false;
+  w = hd[4] | (hd[5] << 8); h = hd[6] | (hd[7] << 8);
+  return w >= 1 && h >= 1 && w <= 128 && h <= 128 && f.size() == 8 + (size_t)w * h * 2;
+}
+void handleLogoUpload() {
+  HTTPUpload& up = server.upload();
+  if (up.status == UPLOAD_FILE_START) {
+    logoErr = "";
+    if (!pinOk()) logoErr = "Settings are locked. Unlock them in Settings first.";
+    else if (!fsOk) logoErr = "This meter has no storage for a logo. Load it once by USB with the Partition Scheme from the build guide.";
+    else { LittleFS.remove(LOGO_TMP); logoUp = LittleFS.open(LOGO_TMP, "w"); if (!logoUp) logoErr = "Couldn't save the logo."; }
+  } else if (up.status == UPLOAD_FILE_WRITE) {
+    if (!logoUp || logoErr.length()) return;
+    if (logoUp.size() + up.currentSize > 8 + 128 * 128 * 2) logoErr = "That logo is too big.";
+    else if (logoUp.write(up.buf, up.currentSize) != up.currentSize) logoErr = "The meter's storage is full. Delete some saved gigs and try again.";
+  } else if (up.status == UPLOAD_FILE_END || up.status == UPLOAD_FILE_ABORTED) {
+    if (logoUp) logoUp.close();
+    if (up.status == UPLOAD_FILE_ABORTED && !logoErr.length()) logoErr = "The upload stopped part way.";
+    if (!logoErr.length()) {
+      File f = LittleFS.open(LOGO_TMP, "r"); uint16_t w, h; bool good = f && readLogoHdr(f, w, h); if (f) f.close();
+      if (!good) logoErr = "That logo file didn't check out.";
+      else { LittleFS.remove(LOGO_PATH); if (!LittleFS.rename(LOGO_TMP, LOGO_PATH)) logoErr = "Couldn't save the logo."; }
+    }
+    if (logoErr.length()) LittleFS.remove(LOGO_TMP);
+  }
+}
+void handleLogoDone() {
+  if (logoErr.length()) server.send(200, "application/json", "{\"ok\":false,\"msg\":\"" + jsonEsc(logoErr) + "\"}");
+  else { server.send(200, "application/json", "{\"ok\":true}"); logoShowReq = true; }   // show it on the meter straight away
+}
+void handleLogoDel() {
+  if (!pinOk()) { server.send(200, "application/json", "{\"denied\":true}"); return; }
+  if (fsOk) LittleFS.remove(LOGO_PATH);
+  server.send(200, "application/json", "{\"ok\":true}");
+}
+void handleLogoFile() {
+  File f = hasLogo() ? LittleFS.open(LOGO_PATH, "r") : File();
+  if (!f) { server.send(404, "text/plain", "No logo"); return; }
+  server.sendHeader("Cache-Control", "no-store");
+  server.streamFile(f, "application/octet-stream"); f.close();
+}
+void handleLogoShow() { logoShowReq = hasLogo(); server.send(200, "application/json", "{\"ok\":true}"); }
+void showStartLogo() {                      // fade the logo in, hold it, fade it out
+  if (!hasLogo()) return;
+  File f = LittleFS.open(LOGO_PATH, "r"); uint16_t w, h;
+  if (!f || !readLogoHdr(f, w, h)) { if (f) f.close(); return; }
+  uint16_t* px = (uint16_t*)malloc((size_t)w * h * 2);
+  if (!px) { f.close(); return; }
+  f.read((uint8_t*)px, (size_t)w * h * 2); f.close();
+  int x0 = (128 - w) / 2, y0 = (128 - h) / 2;
+  auto frame = [&](float a) {             // logo on black, faded by a (0..1)
+    canvas.fillScreen(0x0000);
+    uint16_t* b = canvas.getBuffer();
+    uint16_t k = (uint16_t)(constrain(a, 0.0f, 1.0f) * 255 + 0.5f);
+    for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
+      uint16_t c = px[y * w + x];
+      if (k < 255) c = ((((c >> 11) & 31) * k / 255) << 11) | ((((c >> 5) & 63) * k / 255) << 5) | ((c & 31) * k / 255);
+      b[(y0 + y) * 128 + x0 + x] = c;
+    }
+    pushCanvas();
+  };
+  auto fade = [&](float from, float to, uint32_t ms) {
+    uint32_t t0 = millis();
+    while (true) { float t = constrain((millis() - t0) / (float)ms, 0.0f, 1.0f); frame(from + (to - from) * t * t * (3 - 2 * t)); if (t >= 1) break; }
+  };
+  fade(0, 1, 350); delay(1500); fade(1, 0, 300);
+  free(px);
+}
+
 // ---------------- Factory reset ----------------
 // Clears every setting, saved network, the WiFi name, the lock and saved logs.
 // Keeps this unit's factory calibration and serial number, then restarts.
@@ -6075,6 +6197,10 @@ void startServer() {
     server.on("/api/update", HTTP_POST, handleUpdateDone, handleUpdateUpload);
     server.on("/api/logs", handleLogs);
     server.on("/api/oldlog.csv", handleOldLogCsv);
+    server.on("/api/logo", HTTP_POST, handleLogoDone, handleLogoUpload);
+    server.on("/api/logo.bin", handleLogoFile);
+    server.on("/api/logodel", handleLogoDel);
+    server.on("/api/logoshow", handleLogoShow);
     server.onNotFound([]() { server.sendHeader("Location", "/"); server.send(302, "text/plain", ""); });
     serverStarted = true;
   }
@@ -9219,6 +9345,7 @@ void setup() {
     } else { detailRow(108, "To turn on", "hold 3 s", C_DIM); pushCanvas(); }
     delay(1800);
   }
+  showStartLogo();                                   // the custom logo, if one has been uploaded
 
   designFilters();
   aFast = 1.0f - expf(-1.0f / (TAU_FAST * FS));
@@ -9236,6 +9363,7 @@ void setup() {
 void loop() {
   uint32_t now = millis();
   handleSerial();
+  if (logoShowReq) { logoShowReq = false; showStartLogo(); lastFrameOk = false; }   // phone asked to see the logo
   if (wifiOn) { inServer = true; server.handleClient(); inServer = false; netService(now); }
   if (wifiOffAt && (int32_t)(now - wifiOffAt) >= 0) { wifiOffAt = 0; wifiStop(); savePrefs(); toast("WiFi off", "Hold 3 s to turn on", 1500); }
   if (apRestartAt && (int32_t)(now - apRestartAt) >= 0) {           // new name / password for the meter's own WiFi

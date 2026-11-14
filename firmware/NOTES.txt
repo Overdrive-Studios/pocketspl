@@ -1,2 +1,2 @@
-Smoother phone meter: the number, ring, bar and 60-second graph now glide instead of stepping.
-Turn your phone sideways and the 60-second graph fills the screen.
+Start-up logo: add your own logo on the phone (Settings → General). It shows on the meter after PocketSPL each time it starts.
+Smoother phone meter.
