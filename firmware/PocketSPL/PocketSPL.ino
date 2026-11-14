@@ -155,7 +155,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.18"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.19"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -4551,7 +4551,7 @@ const char PAGE[] PROGMEM =
 "\n"
 "/* level graph: 20 readings a second from the meter, follows the level automatically.\n"
 "   Pinch to zoom (where your fingers are), drag sideways to look back, double-tap to go back to live. */\n"
-"var gz={span:60, end:null, lo:null, hi:null, autoLo:40, autoHi:110, pinch:null, drag:null, tapAt:0};\n"
+"var gz={span:60, end:null, lo:null, hi:null, autoLo:40, autoHi:110, pinch:null, drag:null, tapAt:0, cols:false};\n"
 "function graphTitle(){ const s=Math.round(gz.span), t = s<120 ? s+\" seconds\" : Math.round(s/60)+\" minutes\";\n"
 "  $(\"graphTitle\").textContent = gz.end ? t+\" · looking back\" : \"Last \"+t; }\n"
 "function graphLive(){ gz.end=null; graphTitle(); }\n"
@@ -4583,11 +4583,17 @@ const char PAGE[] PROGMEM =
 "    g.beginPath(); g.moveTo(0,y(v)); g.lineTo(w,y(v)); g.stroke(); g.setLineDash([]); g.globalAlpha=1; } }\n"
 "  if(pts.length<2) return;\n"
 "  const colr=v=>v>=st.red?cv(\"--red\"):v>=st.amber?cv(\"--amber\"):cv(\"--green\");\n"
-"  if(pts.length>w*1.5){                                   // zoomed out: one column per pixel, showing its highest and lowest\n"
+"  // zoomed out (more readings than pixels): one column per pixel showing its highest and lowest.\n"
+"  // The style only switches at clearly different zoom levels, and the columns are tied to the clock,\n"
+"  // so the graph doesn't flicker between styles or shimmer as it scrolls.\n"
+"  const pxMs=span/w;\n"
+"  if(!gz.cols && pxMs>80) gz.cols=true; else if(gz.cols && pxMs<45) gz.cols=false;\n"
+"  if(gz.cols){\n"
 "    const cols=new Map();\n"
-"    for(const p of pts){ const k=Math.round(x(p.t)); const e=cols.get(k); if(!e) cols.set(k,[p.v,p.v]); else { if(p.v<e[0])e[0]=p.v; if(p.v>e[1])e[1]=p.v; } }\n"
-"    g.lineWidth=1.5; g.lineCap=\"round\";\n"
-"    for(const [k,[a,b]] of cols){ g.strokeStyle=colr(b); g.beginPath(); g.moveTo(k,y(a)+0.75); g.lineTo(k,y(b)-0.75); g.stroke(); }\n"
+"    for(const p of pts){ const k=Math.floor(p.t/pxMs); const e=cols.get(k); if(!e) cols.set(k,[p.v,p.v]); else { if(p.v<e[0])e[0]=p.v; if(p.v>e[1])e[1]=p.v; } }\n"
+"    g.lineWidth=Math.max(1.2,1.6); g.lineCap=\"butt\";\n"
+"    for(const [k,[a,b]] of cols){ const xx=x((k+0.5)*pxMs); if(xx<-2||xx>w+2) continue; const ya=y(a), yb=y(b);\n"
+"      g.strokeStyle=colr(b); g.beginPath(); g.moveTo(xx,Math.max(ya,yb+1.5)); g.lineTo(xx,yb); g.stroke(); }\n"
 "    return;\n"
 "  }\n"
 "  g.lineWidth=2; g.lineJoin=\"round\"; g.lineCap=\"round\";\n"

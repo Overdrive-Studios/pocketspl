@@ -1,1 +1,2 @@
-The Home Screen icon is always the PocketSPL icon, on iPhone and Android. Your start-up logo only shows when the meter starts.
+Fixes the level graph flickering when zoomed out.
+The Home Screen icon is always the PocketSPL icon.
