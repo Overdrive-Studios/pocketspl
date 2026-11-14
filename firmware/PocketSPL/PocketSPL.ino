@@ -155,7 +155,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.19"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.20"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -8878,7 +8878,8 @@ void clMeter(uint32_t now, float db, float fastDb) {
   char buf[24], rb[8];
   easeReading(db, fastDb, now);
   canvas.fillScreen(C_BG);
-  if (!warm && fastDb >= redFrom) canvas.fillRect(0, 0, 128, 2, CL_OVER);
+  if (!warm && fastDb >= redFrom) canvas.fillRect(0, 0, 128, 2, CL_OVER);              // top line: red when loud
+  else if (!warm && fastDb >= amberFrom) canvas.fillRect(0, 0, 128, 2, CL_CAUTION);    // amber when getting loud
   clHeader(now);
 
   if (fault) {
