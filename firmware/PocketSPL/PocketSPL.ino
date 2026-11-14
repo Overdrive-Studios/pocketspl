@@ -155,7 +155,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.15"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.16"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3298,6 +3298,8 @@ void setBrightness(uint8_t level) {
 // ---------------- Audio state (written by the audio task) ----------------
 portMUX_TYPE audioLock = portMUX_INITIALIZER_UNLOCKED;
 float msqF[3] = {0}, msqS[3] = {0};
+const int FR_N = 32;                       // the phone graph's readings: Fast level, 20 a second (mean-square, current weighting)
+float frBuf[FR_N]; uint32_t frSeq = 0; int frCount = 0;
 double leqSum[3] = {0};
 uint64_t leqN = 0;
 float maxF[3] = {0};
@@ -4157,7 +4159,7 @@ const char PAGE[] PROGMEM =
 "  <div class=\"card graphcard\" data-tab=\"meter\">\n"
 "    <h2 id=\"graphTitle\">Last 60 seconds</h2>\n"
 "    <canvas id=\"graph\" width=\"900\" height=\"300\"></canvas>\n"
-"    <p class=\"note\">Pinch sideways to zoom the time (up to 5 minutes), up and down to zoom the level. Double-tap to reset.</p>\n"
+"    <p class=\"note\">Pinch to zoom in on any spike or dip: sideways for time (3 seconds to 5 minutes), up and down for the level. Drag sideways to look back. Double-tap to go back to live.</p>\n"
 "  </div>\n"
 "\n"
 "  <div class=\"card subnav\" data-tab=\"settings\">\n"
@@ -4547,62 +4549,98 @@ const char PAGE[] PROGMEM =
 "\n"
 "$(\"freeze\").onclick=()=>{ frozen=!frozen; $(\"freeze\").textContent=frozen?\"Frozen\":\"Freeze\"; $(\"freeze\").classList.toggle(\"on\",frozen); render(); };\n"
 "\n"
-"/* level graph: follows the level up and down automatically; pinch to zoom, double-tap to reset */\n"
-"var gz={span:60, lo:null, hi:null, autoLo:40, autoHi:110, pinch:null, tapAt:0};\n"
-"function graphTitle(){ const s=Math.round(gz.span); $(\"graphTitle\").textContent = s<120 ? \"Last \"+s+\" seconds\" : \"Last \"+Math.round(s/60)+\" minutes\"; }\n"
+"/* level graph: 20 readings a second from the meter, follows the level automatically.\n"
+"   Pinch to zoom (where your fingers are), drag sideways to look back, double-tap to go back to live. */\n"
+"var gz={span:60, end:null, lo:null, hi:null, autoLo:40, autoHi:110, pinch:null, drag:null, tapAt:0};\n"
+"function graphTitle(){ const s=Math.round(gz.span), t = s<120 ? s+\" seconds\" : Math.round(s/60)+\" minutes\";\n"
+"  $(\"graphTitle\").textContent = gz.end ? t+\" · looking back\" : \"Last \"+t; }\n"
+"function graphLive(){ gz.end=null; graphTitle(); }\n"
 "function drawGraph(){\n"
 "  const c=$(\"graph\"), dpr=window.devicePixelRatio||1, w=c.clientWidth||300, h=c.clientHeight||100, now=Date.now();\n"
 "  const bw=Math.round(w*dpr), bh=Math.round(h*dpr); if(c.width!==bw||c.height!==bh){ c.width=bw; c.height=bh; }   // drawn at the real screen size: sharp and never squashed\n"
 "  const g=c.getContext(\"2d\"); g.setTransform(dpr,0,0,dpr,0,0);\n"
 "  g.clearRect(0,0,w,h);\n"
-"  const span=gz.span*1000, pb=16;                       // bottom strip for the time labels\n"
-"  const pts=hist.filter(p=>now-p.t<=span);\n"
-"  if(pts.length && vis.fast!=null && st && !st.warm && !st.calst && !st.over && now-pts[pts.length-1].t<2000) pts.push({t:now, v:vis.fast});\n"
-"  // range: automatic (fits what's on screen, glides) unless pinched\n"
-"  if(pts.length){ let mn=Infinity,mx=-Infinity; for(const p of pts){ if(p.v<mn)mn=p.v; if(p.v>mx)mx=p.v; }\n"
-"    let tl=Math.floor((mn-6)/10)*10, th=Math.ceil((mx+6)/10)*10; if(th-tl<40){ const m=(tl+th)/2; tl=Math.floor((m-20)/10)*10; th=tl+40; }\n"
-"    tl=Math.max(10,tl); th=Math.min(140,Math.max(th,tl+20));\n"
-"    gz.autoLo+=(tl-gz.autoLo)*0.08; gz.autoHi+=(th-gz.autoHi)*0.08; }\n"
+"  const span=gz.span*1000, R=gz.end||now, L=R-span, pb=16;\n"
+"  const pts=[]; for(const p of hist) if(p.t>=L-1000 && p.t<=R) pts.push(p);\n"
+"  if(!gz.end && pts.length && vis.fast!=null && st && !st.warm && !st.calst && !st.over && now-pts[pts.length-1].t<2000) pts.push({t:now, v:vis.fast});\n"
+"  // range: automatic (fits what's on screen, glides) unless pinched up/down\n"
+"  if(pts.length){ let mn=Infinity,mx=-Infinity; for(const p of pts){ if(p.t<L) continue; if(p.v<mn)mn=p.v; if(p.v>mx)mx=p.v; }\n"
+"    if(mn<=mx){ let tl=Math.floor((mn-4)/5)*5, th=Math.ceil((mx+4)/5)*5; if(th-tl<20){ const m=(tl+th)/2; tl=Math.floor((m-10)/5)*5; th=tl+20; }\n"
+"      tl=Math.max(10,tl); th=Math.min(140,Math.max(th,tl+20));\n"
+"      gz.autoLo+=(tl-gz.autoLo)*0.1; gz.autoHi+=(th-gz.autoHi)*0.1; } }\n"
 "  const lo=gz.lo??gz.autoLo, hi=gz.hi??gz.autoHi, gh=h-pb, y=v=>gh-(Math.max(lo,Math.min(hi,v))-lo)/(hi-lo)*gh;\n"
-"  const x=t=>w-(now-t)/span*w;\n"
+"  const x=t=>w-(R-t)/span*w;\n"
 "  g.font=\"500 12px \"+cvFont(); g.lineWidth=1;\n"
-"  const step=(hi-lo)<=30?5:(hi-lo)<=80?10:20;\n"
+"  const step=(hi-lo)<=12?2:(hi-lo)<=30?5:(hi-lo)<=80?10:20;\n"
 "  for(let v=Math.ceil(lo/step)*step; v<=hi; v+=step){ if(y(v)<10) continue; g.strokeStyle=cv(\"--rule\"); g.beginPath(); g.moveTo(0,y(v)); g.lineTo(w,y(v)); g.stroke(); g.fillStyle=cv(\"--mute\"); g.fillText(v,3,y(v)-3); }\n"
-"  const ts=gz.span<=20?5:gz.span<=60?10:gz.span<=150?30:60;     // time marks\n"
+"  const ts=gz.span<=6?1:gz.span<=20?5:gz.span<=60?10:gz.span<=150?30:60;     // time marks, counted back from now\n"
 "  g.fillStyle=cv(\"--faint\"); g.textAlign=\"center\";\n"
-"  for(let s=ts; s<gz.span; s+=ts){ const xx=w-s/gz.span*w; g.strokeStyle=cv(\"--rule\"); g.globalAlpha=.5; g.beginPath(); g.moveTo(xx,0); g.lineTo(xx,gh); g.stroke(); g.globalAlpha=1;\n"
-"    if(xx>16) g.fillText(s<60?\"-\"+s+\"s\":\"-\"+(s/60)+\"m\",xx,h-3); }\n"
+"  for(let s=Math.ceil((now-R)/1000/ts)*ts; now-s*1000>=L; s+=ts){ if(s<=0) continue; const xx=x(now-s*1000); if(xx>w-4) continue;\n"
+"    g.strokeStyle=cv(\"--rule\"); g.globalAlpha=.5; g.beginPath(); g.moveTo(xx,0); g.lineTo(xx,gh); g.stroke(); g.globalAlpha=1;\n"
+"    if(xx>16 && xx<w-16) g.fillText(s<60?\"-\"+s+\"s\":(s%60?\"-\"+(s/60).toFixed(1)+\"m\":\"-\"+(s/60)+\"m\"),xx,h-3); }\n"
 "  g.textAlign=\"left\";\n"
 "  if(st){ for(const [v,cl] of [[st.amber,cv(\"--amber\")],[st.red,cv(\"--red\")]]){ if(v<lo||v>hi) continue; g.setLineDash([4,4]); g.strokeStyle=cl; g.globalAlpha=.6;\n"
 "    g.beginPath(); g.moveTo(0,y(v)); g.lineTo(w,y(v)); g.stroke(); g.setLineDash([]); g.globalAlpha=1; } }\n"
 "  if(pts.length<2) return;\n"
+"  const colr=v=>v>=st.red?cv(\"--red\"):v>=st.amber?cv(\"--amber\"):cv(\"--green\");\n"
+"  if(pts.length>w*1.5){                                   // zoomed out: one column per pixel, showing its highest and lowest\n"
+"    const cols=new Map();\n"
+"    for(const p of pts){ const k=Math.round(x(p.t)); const e=cols.get(k); if(!e) cols.set(k,[p.v,p.v]); else { if(p.v<e[0])e[0]=p.v; if(p.v>e[1])e[1]=p.v; } }\n"
+"    g.lineWidth=1.5; g.lineCap=\"round\";\n"
+"    for(const [k,[a,b]] of cols){ g.strokeStyle=colr(b); g.beginPath(); g.moveTo(k,y(a)+0.75); g.lineTo(k,y(b)-0.75); g.stroke(); }\n"
+"    return;\n"
+"  }\n"
 "  g.lineWidth=2; g.lineJoin=\"round\"; g.lineCap=\"round\";\n"
 "  for(let i=1;i<pts.length;i++){\n"
 "    const a=pts[i-1], b=pts[i]; if(b.t-a.t>2000) continue;\n"
-"    g.strokeStyle = b.v>=st.red?cv(\"--red\"):b.v>=st.amber?cv(\"--amber\"):cv(\"--green\");\n"
+"    g.strokeStyle=colr(Math.max(a.v,b.v));\n"
 "    g.beginPath(); g.moveTo(x(a.t), y(a.v)); g.lineTo(x(b.t), y(b.v)); g.stroke();\n"
 "  }\n"
+"  if(gz.span<=10){ g.fillStyle=cv(\"--ink\"); for(const p of pts){ const xx=x(p.t); if(xx<0) continue; g.beginPath(); g.arc(xx,y(p.v),1.8,0,7); g.fill(); } }   // close in: show each reading\n"
 "}\n"
 "(function(){\n"
 "  const c=$(\"graph\");\n"
 "  const d=(a,b,k)=>Math.max(12,Math.abs(a[k]-b[k]));\n"
+"  const oldest=()=>hist.length?hist[0].t:Date.now();\n"
+"  const clampEnd=e=>{ const now=Date.now(); if(e==null) return null; e=Math.max(oldest()+gz.span*1000*0.5, e); return e>=now-250 ? null : e; };\n"
 "  c.addEventListener(\"touchstart\",e=>{\n"
+"    const r=c.getBoundingClientRect();\n"
 "    if(e.touches.length===2){ const [a,b]=e.touches;\n"
-"      const lo=gz.lo??gz.autoLo, hi=gz.hi??gz.autoHi, r=c.getBoundingClientRect(), my=((a.clientY+b.clientY)/2-r.top)/(r.height-16);\n"
-"      gz.pinch={dx:d(a,b,\"clientX\"), dy:d(a,b,\"clientY\"), span:gz.span, lo, hi, mid:hi-my*(hi-lo), vert:Math.abs(a.clientY-b.clientY)>Math.abs(a.clientX-b.clientX)};\n"
-"      e.preventDefault(); }\n"
-"    else if(e.touches.length===1){ const t=Date.now(); if(t-gz.tapAt<300){ gz.span=60; gz.lo=gz.hi=null; graphTitle(); toast(\"Graph reset\"); e.preventDefault(); } gz.tapAt=t; }\n"
+"      const lo=gz.lo??gz.autoLo, hi=gz.hi??gz.autoHi, my=((a.clientY+b.clientY)/2-r.top)/(r.height-16), mx=((a.clientX+b.clientX)/2-r.left)/r.width;\n"
+"      const R=gz.end||Date.now();\n"
+"      gz.pinch={dx:d(a,b,\"clientX\"), dy:d(a,b,\"clientY\"), span:gz.span, lo, hi, mid:hi-my*(hi-lo), mx, tAt:R-(1-mx)*gz.span*1000,\n"
+"        vert:Math.abs(a.clientY-b.clientY)>Math.abs(a.clientX-b.clientX)};\n"
+"      gz.drag=null; e.preventDefault(); }\n"
+"    else if(e.touches.length===1){ const t=Date.now(), p=e.touches[0];\n"
+"      if(t-gz.tapAt<300){ gz.span=60; gz.lo=gz.hi=null; graphLive(); toast(\"Graph back to live\"); e.preventDefault(); }\n"
+"      gz.tapAt=t; gz.drag={x:p.clientX, end:gz.end||Date.now(), w:r.width}; }\n"
 "  },{passive:false});\n"
 "  c.addEventListener(\"touchmove\",e=>{\n"
-"    if(!gz.pinch || e.touches.length!==2) return; e.preventDefault(); const P=gz.pinch, [a,b]=e.touches;\n"
-"    if(P.vert){ const k=P.dy/d(a,b,\"clientY\"), half=Math.max(5,Math.min(60,(P.hi-P.lo)/2*k));   // fingers apart up/down: zoom the dB scale\n"
-"      gz.lo=Math.max(0,P.mid-half); gz.hi=Math.min(150,gz.lo+2*half); }\n"
-"    else { gz.span=Math.max(10,Math.min(300,P.span*P.dx/d(a,b,\"clientX\"))); graphTitle(); }   // apart sideways: zoom the time\n"
+"    if(gz.pinch && e.touches.length===2){ e.preventDefault(); const P=gz.pinch, [a,b]=e.touches;\n"
+"      if(P.vert){ const k=P.dy/d(a,b,\"clientY\"), half=Math.max(3,Math.min(60,(P.hi-P.lo)/2*k));   // fingers apart up/down: zoom the dB scale\n"
+"        gz.lo=Math.max(0,P.mid-half); gz.hi=Math.min(150,gz.lo+2*half); }\n"
+"      else { gz.span=Math.max(3,Math.min(300,P.span*P.dx/d(a,b,\"clientX\")));                    // apart sideways: zoom the time where your fingers are\n"
+"        gz.end=clampEnd(P.tAt+(1-P.mx)*gz.span*1000); graphTitle(); }\n"
+"      return; }\n"
+"    if(gz.drag && e.touches.length===1){ const dx=e.touches[0].clientX-gz.drag.x; if(Math.abs(dx)<4) return;   // drag sideways: look back in time\n"
+"      gz.end=clampEnd(gz.drag.end-dx/gz.drag.w*gz.span*1000); graphTitle(); }\n"
 "  },{passive:false});\n"
-"  c.addEventListener(\"touchend\",e=>{ if(e.touches.length<2) gz.pinch=null; });\n"
-"  c.addEventListener(\"wheel\",e=>{ if(!e.ctrlKey) return; e.preventDefault(); gz.span=Math.max(10,Math.min(300,gz.span*Math.exp(e.deltaY*0.01))); graphTitle(); },{passive:false});   // trackpad pinch on a computer\n"
+"  c.addEventListener(\"touchend\",e=>{ if(e.touches.length<2) gz.pinch=null; if(!e.touches.length) gz.drag=null; });\n"
+"  c.addEventListener(\"wheel\",e=>{ if(!e.ctrlKey) return; e.preventDefault(); gz.span=Math.max(3,Math.min(300,gz.span*Math.exp(e.deltaY*0.01))); graphTitle(); },{passive:false});   // trackpad pinch on a computer\n"
 "  graphTitle();\n"
 "})();\n"
+"/* 20 readings a second: the meter sends what it measured since the last update */\n"
+"var frSeq=0;\n"
+"function addReadings(){\n"
+"  if(!st || st.warm || st.calst || st.over) return;\n"
+"  const now=Date.now();\n"
+"  if(Array.isArray(st.fr) && typeof st.fseq===\"number\"){\n"
+"    let n = frSeq ? st.fseq-frSeq : 4; if(n<0||n>st.fr.length) n=Math.min(4,st.fr.length);\n"
+"    const k=st.fr.length; for(let i=k-n;i<k;i++) hist.push({t:now-(k-1-i)*50, v:st.fr[i]});\n"
+"    frSeq=st.fseq;\n"
+"  } else hist.push({t:now, v:st.fast});\n"
+"  if(hist.length>1 && hist[hist.length-1].t<hist[hist.length-2].t) hist.sort((a,b)=>a.t-b.t);\n"
+"}\n"
 "\n"
 "/* smooth display: the phone gets a reading 5 times a second; this glides between them 60 times a second */\n"
 "function frame(){\n"
@@ -4625,7 +4663,7 @@ const char PAGE[] PROGMEM =
 "    const r=await fetch(path,{cache:\"no-store\",signal:ctl.signal}); clearTimeout(t);\n"
 "    if(!r.ok) throw 0;\n"
 "    st=await r.json(); ok=true; lastOk=Date.now();\n"
-"    if(!st.warm && !st.calst && !st.over) { hist.push({t:Date.now(), v:st.fast}); }\n"
+"    addReadings();\n"
 "    const cut=Date.now()-301000; while(hist.length && hist[0].t<cut) hist.shift();   // 5 minutes for the zoomable graph\n"
 "    return true;\n"
 "  }catch(e){ if(Date.now()-lastOk>6000) ok=false; return false; }\n"
@@ -5435,6 +5473,16 @@ void sendState() {
   jnum(s, "fast", !warm, fast);
   jnum(s, "peak", !warm, peakDb);
   jnum(s, "max", !warm && snap.maxF[wMode] > 0, toDb(snap.maxF[wMode]));
+  {                                          // the last second of readings (20 a second) for the phone's graph
+    float fr[20]; uint32_t seq; int k;
+    portENTER_CRITICAL(&audioLock);
+    seq = frSeq; k = seq < 20 ? (int)seq : 20;
+    for (int i = 0; i < k; i++) fr[i] = frBuf[(seq - k + i) % FR_N];
+    portEXIT_CRITICAL(&audioLock);
+    s += "\"fseq\":"; s += seq; s += ",\"fr\":[";
+    for (int i = 0; i < k; i++) { char b[12]; snprintf(b, sizeof(b), i ? ",%.1f" : "%.1f", toDb(fr[i])); s += b; }
+    s += "],";
+  }
   jnum(s, "leq", !warm && snap.leqN > 0, snapLeqDb());
   s += "\"rta\":[";
   for (int b = 0; b < RTA_BANDS; b++) {
@@ -6910,6 +6958,8 @@ void processAudio() {
     if (msqF[w] > maxF[w]) maxF[w] = msqF[w];
   }
   leqN += n;
+  frCount += n;
+  while (frCount >= FS / 20) { frCount -= FS / 20; frBuf[frSeq % FR_N] = msqF[wMode]; frSeq++; }
   if (calState == CAL_MEASURE) { calSum += blockRaw; calN += n; }
   gigBlock(blockSum, n, blockPeakC);
   portEXIT_CRITICAL(&audioLock);

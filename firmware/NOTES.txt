@@ -1,2 +1,2 @@
+Zoom right in on any spike or dip: the phone now gets 20 readings a second, pinch zooms where your fingers are (down to 3 seconds), and you can drag sideways to look back. Double-tap for live.
 Level graph follows the level, so quiet rooms below 60 dB show properly.
-Pinch the graph to zoom: sideways for time (up to 5 minutes), up and down for the level. Double-tap to reset.
