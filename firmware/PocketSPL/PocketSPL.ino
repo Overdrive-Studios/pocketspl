@@ -155,7 +155,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.17"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.18"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -5205,22 +5205,17 @@ const char PAGE[] PROGMEM =
 "    requestAnimationFrame(()=>chart(v.querySelector(\"canvas\"),mins,amb,red));\n"
 "  };\n"
 "})();\n"
-"/* Home Screen icon: the start-up logo when there is one, otherwise the PocketSPL icon */\n"
-"function setTouchIcon(src){ const L=$(\"touchIcon\"); if(!L) return;\n"
-"  if(!src){ L.href=\"/apple-touch-icon.png\"; return; }\n"
-"  const c=document.createElement(\"canvas\"); c.width=c.height=180; const g=c.getContext(\"2d\"); g.imageSmoothingEnabled=true; g.imageSmoothingQuality=\"high\";\n"
-"  g.drawImage(src,0,0,128,128,0,0,180,180); L.href=c.toDataURL(\"image/png\"); }\n"
 "/* ---- start-up logo ---- */\n"
 "var logoSeen=null;\n"
 "async function loadLogoPrev(){\n"
 "  const c=$(\"logoPrev\"), g=c.getContext(\"2d\"); g.fillStyle=\"#000\"; g.fillRect(0,0,128,128);\n"
 "  const has=!!(st&&st.logo); $(\"logoDel\").hidden=!has; $(\"logoShow\").hidden=!has;\n"
 "  $(\"logoNote\").textContent = has ? \"Shows on the meter after PocketSPL each time it starts.\" : \"No logo yet. One you add shows on the meter after PocketSPL each time it starts.\";\n"
-"  if(!has){ setTouchIcon(null); return; }\n"
+"  if(!has) return;\n"
 "  try{ const r=await fetch(\"/api/logo.bin\",{cache:\"no-store\"}); if(!r.ok) return; const b=new DataView(await r.arrayBuffer());\n"
 "    const w=b.getUint16(4,true), h=b.getUint16(6,true), im=g.createImageData(w,h);\n"
 "    for(let i=0;i<w*h;i++){ const v=b.getUint16(8+i*2,true); im.data[i*4]=((v>>11)&31)*255/31; im.data[i*4+1]=((v>>5)&63)*255/63; im.data[i*4+2]=(v&31)*255/31; im.data[i*4+3]=255; }\n"
-"    g.putImageData(im,(128-w)>>1,(128-h)>>1); setTouchIcon(c); }catch(e){}\n"
+"    g.putImageData(im,(128-w)>>1,(128-h)>>1); }catch(e){}\n"
 "}\n"
 "$(\"logoFile\").onchange=async e=>{\n"
 "  const f=e.target.files[0]; e.target.value=\"\"; if(!f) return;\n"
