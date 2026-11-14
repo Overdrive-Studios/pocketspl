@@ -155,7 +155,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.7"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.8"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -4140,6 +4140,7 @@ const char PAGE[] PROGMEM =
 "    <h3>Saved gigs</h3>\n"
 "    <div id=\"savedLogs\"><p class=\"note\">Loading…</p></div>\n"
 "    <p class=\"note\">A gig lands here when you reset it or switch the meter off. When storage is full the oldest goes first.</p>\n"
+"    <p class=\"note opens\"><b>Downloads are spreadsheets (.csv).</b> On iPhone they go to the Files app → Downloads; tap one, then Share → Numbers or Excel. On a computer, open with Excel, Numbers or Google Sheets (File → Import).</p>\n"
 "  </div>\n"
 "\n"
 "  <div class=\"card\" data-tab=\"meter\">\n"
@@ -4513,7 +4514,7 @@ const char PAGE[] PROGMEM =
 "$(\"resetNo\").onclick=()=>{ $(\"resetConfirm\").hidden=true; $(\"resetGig\").hidden=false; };\n"
 "$(\"resetYes\").onclick=async()=>{ $(\"resetConfirm\").hidden=true; $(\"resetGig\").hidden=false;\n"
 "  hist=[]; gigLog=null; await set(\"newlog=1&reset=1\",\"Gig reset. Logging again now\"); timeSent=false; drawGigChart(); setTimeout(()=>{ sendTime(); loadLog(); logsKey=\"\"; loadSavedLogs(); },1200); };\n"
-"$(\"dlCsv\").onclick=async(e)=>{ const P=window.parent!==window&&window.parent.PocketSim; if(!P) return; e.preventDefault();\n"
+"$(\"dlCsv\").onclick=async(e)=>{ e.preventDefault(); const P=window.parent!==window&&window.parent.PocketSim; if(!P){ saveCsv(\"/api/log.csv\", csvName(st&&st.log&&st.log.t0), $(\"dlCsv\")); return; }\n"
 "  const txt=P.csv(); const v=document.createElement(\"div\"); v.className=\"csvview\"; const pre=document.createElement(\"pre\"); pre.textContent=txt+\"\\n(Simulator: on the real meter this downloads as a spreadsheet file. Tap to close.)\"; v.append(pre); v.onclick=()=>v.remove(); document.body.append(v); };\n"
 "$(\"limOn\").onchange=e=>set(\"limOn=\"+(e.target.checked?1:0), e.target.checked?\"Limit alarm on\":\"Limit alarm off\");\n"
 "document.querySelectorAll(\"[data-l]\").forEach(b=>b.onclick=()=>{ if(!st) return; const v=st.lim.db+(+b.dataset.l); set(\"limDb=\"+v,\"Limit \"+v+\" dB\"); });\n"
@@ -4932,6 +4933,19 @@ const char PAGE[] PROGMEM =
 "if(getPin()) pinVerified=true;\n"
 "\n"
 "let logsKey=\"\";\n"
+"/* save a gig as a spreadsheet: fetch it first, so iPhone saves a real file with a proper name */\n"
+"function csvName(t0,id){ const d=t0?new Date(t0):new Date(); const p=n=>String(n).padStart(2,\"0\");\n"
+"  return \"PocketSPL gig \"+d.getFullYear()+\"-\"+p(d.getMonth()+1)+\"-\"+p(d.getDate())+\" \"+p(d.getHours())+\"\"+p(d.getMinutes())+(id?\" (\"+id+\")\":\"\")+\".csv\"; }\n"
+"async function saveCsv(url,name,btn){\n"
+"  if(btn.dataset.busy) return; const old=btn.textContent; btn.dataset.busy=1; btn.textContent=\"Preparing…\";\n"
+"  try{ const r=await fetch(url,{cache:\"no-store\"}); if(!r.ok) throw new Error(await r.text());\n"
+"    const blob=new Blob([await r.arrayBuffer()],{type:\"text/csv\"});\n"
+"    const u=URL.createObjectURL(blob), a=document.createElement(\"a\"); a.href=u; a.download=name; a.style.display=\"none\";\n"
+"    document.body.append(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),60000);\n"
+"    toast(\"Downloaded. Open it in Numbers, Excel or Google Sheets\");\n"
+"  }catch(e){ toast(\"Couldn't download it. Check the phone is still connected to the meter\"); }\n"
+"  btn.textContent=old; delete btn.dataset.busy;\n"
+"}\n"
 "async function loadSavedLogs(){\n"
 "  let j=null;\n"
 "  if(window.parent!==window && window.parent.PocketSim) j=window.parent.PocketSim.logs();\n"
@@ -4949,7 +4963,7 @@ const char PAGE[] PROGMEM =
 "    meta.append(b,sm);\n"
 "    const acts=document.createElement(\"div\"); acts.className=\"acts\";\n"
 "    const dl=document.createElement(\"a\"); dl.className=\"btn small\"; dl.textContent=\"Download\"; dl.href=\"/api/oldlog.csv?id=\"+g.id; dl.download=\"PocketSPL-log-\"+g.id+\".csv\";\n"
-"    dl.onclick=e=>{ const P=window.parent!==window&&window.parent.PocketSim; if(!P) return; e.preventDefault(); toast(\"Simulator: downloads on the real meter\"); };\n"
+"    dl.onclick=e=>{ e.preventDefault(); const P=window.parent!==window&&window.parent.PocketSim; if(P){ toast(\"Simulator: downloads on the real meter\"); return; } saveCsv(dl.href, csvName(g.t0,g.id), dl); };\n"
 "    const del=document.createElement(\"button\"); del.className=\"btn small\"; del.textContent=\"Delete\"; del.setAttribute(\"data-lock\",\"\");\n"
 "    del.onclick=async()=>{ if(!confirm(\"Delete this saved gig?\")) return;\n"
 "      if(window.parent!==window && window.parent.PocketSim){ window.parent.PocketSim.delLog(g.id); }\n"
@@ -5712,7 +5726,8 @@ void sendLogCsv(const char* filename, int64_t t0, uint32_t first, int kept, int 
   server.sendHeader("Content-Disposition", String("attachment; filename=\"") + filename + "\"");
   server.sendHeader("Cache-Control", "no-store");
   server.send(200, "text/csv", "");
-  String o = "Minute ending,Elapsed (min),LAeq 1 min (dB),LCeq 1 min (dB),LAFmax (dB),LCpeak (dB),Marker\r\n";
+  String o = "\xEF\xBB\xBF";                  // UTF-8 marker so Excel shows marker text correctly
+  o += "Minute ending,Elapsed (min),LAeq 1 min (dB),LCeq 1 min (dB),LAFmax (dB),LCpeak (dB),Marker\r\n";
   char b[96];
   for (int i = 0; i < kept; i++) {
     uint32_t m = first + i;                  // minute number since the log started (0 = first)

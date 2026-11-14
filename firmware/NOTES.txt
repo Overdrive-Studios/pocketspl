@@ -1,2 +1,2 @@
-Weighting buttons stay steady while you tap through A, C and Z.
-The big number updates 5 times a second, so it reads cleanly with no half-drawn digits.
+Saved gig downloads work properly on iPhone, with a clear file name and a message when done.
+Notes on the Gig page say what to open the spreadsheet in.
