@@ -1,1 +1,2 @@
-Start-up logo fills the whole screen: the logo is made as big as it fits, and its own background colour reaches the edges (no black border).
+Home Screen icon: add the page to your Home Screen and it gets the PocketSPL icon (or your start-up logo if you added one).
+The 60-second graph is sharp and never squashed, upright or sideways.
