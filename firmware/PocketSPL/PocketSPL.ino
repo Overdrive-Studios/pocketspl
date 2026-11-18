@@ -219,6 +219,8 @@ void loadCloud();
 void cloudForget();
 void cloudTick(uint32_t now);
 bool cloudQueueAlert(const char* kind, const char* title, const char* body, const char* prio);
+void cloudClearQueue();                     // drop alerts waiting for the server
+void cloudResendLog();                      // server needs the log again from the start
 void noteError(const char* msg);            // keep a few recent problems for the support report
 const char*   DEFAULT_WIFI_NAME = "PocketSPL";
 const char*   DEFAULT_WIFI_PASS = "pocketspl";     // 8+ characters
@@ -5759,9 +5761,9 @@ void handleSet() {
       cloudForget(); clTestNow = true; toast("Server", "Saved", 1200);
     }
   }
-  if (server.hasArg("clalerts")) { clAlerts = server.arg("clalerts").toInt() != 0; prefs.putBool("clAl", clAlerts); clQn = 0;
+  if (server.hasArg("clalerts")) { clAlerts = server.arg("clalerts").toInt() != 0; prefs.putBool("clAl", clAlerts); cloudClearQueue();
                                    if (clAlerts && !limOn) { limOn = true; limState = 0; savePrefs(); } }   // over-limit alerts need the limit alarm on
-  if (server.hasArg("cllevels")) { clLevels = server.arg("cllevels").toInt() != 0; prefs.putBool("clLvl", clLevels); clAckValid = false; }
+  if (server.hasArg("cllevels")) { clLevels = server.arg("cllevels").toInt() != 0; prefs.putBool("clLvl", clLevels); cloudResendLog(); }
   if (server.hasArg("clclear")) { clUrl = ""; clKey = ""; prefs.remove("clUrl"); prefs.remove("clKey"); cloudForget(); toast("Server", "Off", 1200); }
   if (server.hasArg("cltest") && cloudOn()) { clTestNow = true; clLast = ""; clFailed = false; toast("Server", "Sending...", 1200); }
   if (server.hasArg("altest")) {
@@ -5994,6 +5996,8 @@ const int CL_REC_MAX = 60, CL_MARK_MAX = 10, CL_Q_MAX = 4;
 struct ClAlert { char kind[8]; char title[64]; char body[200]; char prio[8]; };
 ClAlert clQ[CL_Q_MAX]; int clQn = 0, clQsent = 0;   // alerts waiting to go / how many the report in flight carries
 uint32_t clAckId = 0, clHave = 0; int clMk = 0; bool clAckValid = false;   // what the server has of this log
+void cloudClearQueue() { clQn = 0; }
+void cloudResendLog() { clAckValid = false; }
 uint32_t clLastAt = 0;
 volatile int clResult = 0;                  // set by the sending task: HTTP status, or <0 = failed
 volatile bool clBusy = false;
