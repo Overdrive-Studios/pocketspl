@@ -129,6 +129,8 @@
 #include <LittleFS.h>
 #include "esp_wifi.h"
 #include "esp_ota_ops.h"
+#include "esp_system.h"                    // esp_reset_reason(): why the meter last restarted (remote support)
+#include "esp_timer.h"                     // esp_timer_get_time(): uptime without the 49-day millis() wrap
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1351.h>
 #include <math.h>
@@ -155,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.22"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.23"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -195,7 +197,29 @@ bool netOnline();
 bool validTopic(const String& t);
 String newTopic();
 void alertWhen(char* out, size_t n);
-bool sendAlert(const char* title, const char* body, const char* prio);
+bool sendAlert(const char* kind, const char* title, const char* body, const char* prio);
+// Your own PocketSPL Server (see "PocketSPL Server" further down). Off by default; the owner turns it on in
+// Settings on the phone page (never on the meter's screen), with a status line and an off switch. When on, the
+// meter sends a health report every 15 s - software version, serial, mic/battery/WiFi/storage state, uptime and
+// why it last restarted - so you can watch a meter and help diagnose it anywhere. Two extra choices under it:
+//   "Send my alerts here (not ntfy)" - the meter's over-limit and battery notifications go to your server, which
+//                                      pushes them to your phone. No ntfy app. Off = keep using ntfy.
+//   "Include sound levels and logs"  - also send the live levels and the gig log, for the dashboard.
+String clUrl, clKey;                        // server address (http://... or https://...) and this meter's key
+String clLast;                              // why the last report failed ("" = it worked)
+uint32_t clOkAt = 0;                        // millis() of the last report the server accepted (0 = none yet)
+bool clAlerts = false;                      // send alerts to the server instead of ntfy (owner's choice, default off)
+bool clLevels = false;                      // also send sound levels + the gig log (owner's choice, default off)
+bool clMore = false, clAlertNow = false, clTestNow = false, clFailed = false;   // catching up / alert waiting / test / last failed
+bool cloudOn();
+bool cloudAlerts();                         // true when the owner has chosen to get alerts through the server
+bool validCloudUrl(const String& u);
+String cleanKey(const String& in);
+void loadCloud();
+void cloudForget();
+void cloudTick(uint32_t now);
+bool cloudQueueAlert(const char* kind, const char* title, const char* body, const char* prio);
+void noteError(const char* msg);            // keep a few recent problems for the support report
 const char*   DEFAULT_WIFI_NAME = "PocketSPL";
 const char*   DEFAULT_WIFI_PASS = "pocketspl";     // 8+ characters
 String apName = DEFAULT_WIFI_NAME, apPass = DEFAULT_WIFI_PASS;   // the meter's own WiFi (changeable on the phone)
@@ -3340,7 +3364,8 @@ int copyLog(LogRec* out, uint32_t& first, Marker* mk, int& nmk);   // (declared 
 uint32_t logSecs = 0;                      // seconds since the log started
 volatile bool newLogRequested = false;
 int64_t logStartEpochMs = 0;               // wall-clock time the log started (from the phone), 0 = unknown
-int tzOffsetMin = 0;                       // phone's time zone, minutes east of UTC
+uint32_t logId = 0;                        // random number for this log, so the server can tell one night from the next
+int tzOffsetMin = 0;                      // phone's time zone, minutes east of UTC
 
 struct Snapshot { float msqF[3], msqS[3], maxF[3]; double leqSum[3]; uint64_t leqN;
                   double roll[3][3]; uint32_t rollCount; double doseE, doseSecs; uint32_t logTotal, logSecs; };
@@ -3872,7 +3897,7 @@ const char PAGE[] PROGMEM =
 ".joinform .btn.primary{margin-top:8px}\n"
 ".pw,.pinrow{display:flex;gap:6px}\n"
 ".pinrow input{letter-spacing:4px;font-size:18px}\n"
-".pinrow input#alTopic{letter-spacing:normal;font-size:16px}\n"
+".pinrow input#alTopic,.pinrow input#clUrl,.pinrow input#clKey{letter-spacing:normal;font-size:16px}\n"
 ".addr{display:flex;flex-direction:column;gap:6px}\n"
 ".addr .fixed{display:flex;flex-direction:column;gap:6px}\n"
 ".addr small{font-size:13px;color:var(--mute)}\n"
@@ -4211,13 +4236,36 @@ const char PAGE[] PROGMEM =
 "    <div class=\"ctl\"><span>Over for</span><div class=\"seg\" id=\"segAlHold\"><button type=\"button\" data-v=\"0\">Right away</button><button type=\"button\" data-v=\"2\">2 min</button><button type=\"button\" data-v=\"5\">5 min</button><button type=\"button\" data-v=\"10\">10 min</button></div></div>\n"
 "    <div class=\"ctl\"><span>Repeat every</span><div class=\"seg\" id=\"segAlRep\"><button type=\"button\" data-v=\"15\">15 min</button><button type=\"button\" data-v=\"30\">30 min</button><button type=\"button\" data-v=\"60\">1 hour</button></div></div>\n"
 "    <label class=\"check\"><input type=\"checkbox\" id=\"alBack\"> Also when it's back under</label>\n"
+"    <p class=\"note\" id=\"alViaServer\" hidden>Alerts go to <b>your PocketSPL Server</b> (see <b>Server</b> below), which sends them to the phones you've turned on there.</p>\n"
+"    <div id=\"alNtfy\">\n"
 "    <h3>Phone</h3>\n"
 "    <p class=\"note\">Install the free <b>ntfy</b> app (App Store or Google Play), tap <b>+</b> and add this topic. Keep it private: anyone with the topic can see the alerts.</p>\n"
 "    <div class=\"pinrow\"><input id=\"alTopic\" autocomplete=\"off\" autocapitalize=\"off\" spellcheck=\"false\" aria-label=\"ntfy topic\"><button class=\"btn\" id=\"alCopy\" type=\"button\">Copy</button></div>\n"
 "    <div class=\"row\"><button class=\"btn\" id=\"alNew\" type=\"button\">New topic</button></div>\n"
+"    </div>\n"
 "    <div class=\"schbtns\" style=\"margin-top:12px\"><button class=\"btn\" id=\"alSave\" type=\"button\">Save</button><button class=\"btn\" id=\"alTest\" type=\"button\">Send a test</button></div>\n"
 "    </div>\n"
 "    <p class=\"note\">Uses the limit, the average (1, 5 or 15 min) and LAeq or LCeq from <b>Alarm and screen</b>. The meter needs to be on a WiFi network with internet (Settings → WiFi).</p>\n"
+"  </div>\n"
+"\n"
+"  <div class=\"card\" data-tab=\"settings\" data-sub=\"general\">\n"
+"    <h2>PocketSPL Server</h2>\n"
+"    <p class=\"note\" id=\"clState\"></p>\n"
+"    <div data-lock>\n"
+"    <p class=\"note\">Connects this meter to your own <b>PocketSPL Server</b>, so you can watch it and help diagnose it from anywhere. It sends a health report (software, mic, battery, WiFi, storage, uptime). Add this meter on the server's dashboard (Settings → Meters) to get its key.</p>\n"
+"    <label class=\"note\" for=\"clUrl\">Server address</label>\n"
+"    <div class=\"pinrow\"><input id=\"clUrl\" type=\"url\" inputmode=\"url\" autocomplete=\"off\" autocapitalize=\"off\" spellcheck=\"false\" placeholder=\"http://192.168.1.20:8080\"></div>\n"
+"    <label class=\"note\" for=\"clKey\" style=\"display:block;margin-top:10px\">Meter key</label>\n"
+"    <div class=\"pinrow\"><input id=\"clKey\" autocomplete=\"off\" autocapitalize=\"off\" spellcheck=\"false\" placeholder=\"from the dashboard\"></div>\n"
+"    <div class=\"schbtns\" style=\"margin-top:12px\"><button class=\"btn\" id=\"clSave\" type=\"button\">Save</button><button class=\"btn\" id=\"clTest\" type=\"button\">Test</button><button class=\"btn\" id=\"clOff\" type=\"button\">Turn off</button></div>\n"
+"    <div id=\"clOpts\" hidden style=\"margin-top:14px\">\n"
+"      <label class=\"check\"><input type=\"checkbox\" id=\"clAlerts\"> Send my alerts here instead of the ntfy app</label>\n"
+"      <p class=\"note\">Over-limit and battery alerts go to your server, which sends them to the phones you turn on there (dashboard → Settings → Notifications). No ntfy app needed.</p>\n"
+"      <label class=\"check\" style=\"margin-top:8px\"><input type=\"checkbox\" id=\"clLevels\"> Also send sound levels and the gig log</label>\n"
+"      <p class=\"note\">Lets the dashboard show the live level and every night's chart. Leave off to send only the meter's health.</p>\n"
+"    </div>\n"
+"    </div>\n"
+"    <p class=\"note\">The meter needs to be on a WiFi network that can reach the server (Settings → WiFi). A server on your own computer: use its network address, not \"localhost\".</p>\n"
 "  </div>\n"
 "\n"
 "  <div class=\"card\" data-tab=\"settings\" data-sub=\"general\" data-lock>\n"
@@ -4415,7 +4463,7 @@ const char PAGE[] PROGMEM =
 "\n"
 "let held=false;\n"
 "function render(){\n"
-"  if(st){ renderUpd(); renderLock(); renderSchedule(); renderAlerts(); if(st.logo!==logoSeen){ logoSeen=st.logo; loadLogoPrev(); } }\n"
+"  if(st){ renderUpd(); renderLock(); renderSchedule(); renderAlerts(); renderServer(); if(st.logo!==logoSeen){ logoSeen=st.logo; loadLogoPrev(); } }\n"
 "  $(\"dot\").classList.toggle(\"ok\", ok);\n"
 "  $(\"conn\").textContent = ok ? (st&&st.standby ? \"Standby until \"+(st.next||\"--\") : \"Live\") : \"Not connected\";\n"
 "  $(\"meter\").classList.toggle(\"off\", !ok);\n"
@@ -4980,7 +5028,37 @@ const char PAGE[] PROGMEM =
 "  let t = !st.alon ? \"Off.\" : !st.online ? \"On, but the meter isn't on a WiFi network with internet, so alerts can't go out.\" : \"On. Alerts go out when it's over \"+(st.lim?st.lim.db:\"--\")+\" dB\"+(st.alhold?\" for \"+st.alhold+\" min\":\"\")+\".\";\n"
 "  if(st.allast) t += \" Last: \"+st.allast+\".\";\n"
 "  $(\"alState\").textContent=t;\n"
+"  $(\"alViaServer\").hidden=!st.clalerts; $(\"alNtfy\").hidden=!!st.clalerts;\n"
 "}\n"
+"// ---- your own PocketSPL Server ----\n"
+"let clDirty=false;\n"
+"function renderServer(){\n"
+"  if(!clDirty && document.activeElement!==$(\"clUrl\") && document.activeElement!==$(\"clKey\")){\n"
+"    $(\"clUrl\").value=st.clurl||\"\"; $(\"clKey\").value=\"\";\n"
+"    $(\"clKey\").placeholder=st.clkey?(\"saved, ends in \"+st.clkey+\" (leave empty to keep it)\"):\"from the dashboard\";\n"
+"  }\n"
+"  $(\"clAlerts\").checked=!!st.clalerts; $(\"clLevels\").checked=!!st.cllevels;\n"
+"  $(\"clOpts\").hidden=!st.clon;\n"
+"  let t;\n"
+"  if(!st.clon) t=\"Off. Add the server address and this meter's key to connect it.\";\n"
+"  else if(!st.online) t=\"On, but the meter isn't on a WiFi network, so nothing can be sent.\";\n"
+"  else if(st.cllast) t=\"Not working: \"+st.cllast;\n"
+"  else if(st.clok>=0) t=\"Working. Last report \"+(st.clok<60?st.clok+\" s\":Math.round(st.clok/60)+\" min\")+\" ago.\";\n"
+"  else t=\"On. Sending the first report...\";\n"
+"  $(\"clState\").textContent=t;\n"
+"  $(\"clTest\").disabled=$(\"clOff\").disabled=!st.clon;\n"
+"}\n"
+"$(\"clAlerts\").onchange=()=>set(\"clalerts=\"+($(\"clAlerts\").checked?1:0), $(\"clAlerts\").checked?\"Alerts go to your server\":\"Alerts go to ntfy\");\n"
+"$(\"clLevels\").onchange=()=>set(\"cllevels=\"+($(\"clLevels\").checked?1:0), $(\"clLevels\").checked?\"Sending levels and logs\":\"Health only\");\n"
+"[\"clUrl\",\"clKey\"].forEach(id=>$(id).addEventListener(\"input\",()=>clDirty=true));\n"
+"$(\"clSave\").onclick=async()=>{\n"
+"  const u=$(\"clUrl\").value.trim(), k=$(\"clKey\").value.trim();\n"
+"  if(!/^https?:\\/\\/[^\\s\"\\\\]{3,}$/.test(u)){ toast(\"Address: starts with http:// or https://\"); return; }\n"
+"  if(!k && !st.clkey){ toast(\"Type the meter key from the dashboard\"); return; }\n"
+"  clDirty=false; await set(\"clurl=\"+encodeURIComponent(u)+(k?\"&clkey=\"+encodeURIComponent(k):\"\"), \"Saved: testing...\");\n"
+"};\n"
+"$(\"clTest\").onclick=()=>set(\"cltest=1\", \"Sending a report\");\n"
+"$(\"clOff\").onclick=()=>{ if(confirm(\"Stop sending to the server?\")){ clDirty=false; set(\"clclear=1\", \"Server off\"); } };\n"
 "$(\"alTopic\").addEventListener(\"input\",()=>alDirty=true);\n"
 "$(\"alOn\").onchange=()=>set(\"alon=\"+($(\"alOn\").checked?1:0), $(\"alOn\").checked?\"Alerts on\":\"Alerts off\");\n"
 "$(\"alBack\").onchange=()=>set(\"alback=\"+($(\"alBack\").checked?1:0));\n"
@@ -5544,6 +5622,13 @@ void sendState() {
   s += "\"alhold\":"; s += String(alHold); s += ",\"alrep\":"; s += String(alRep); s += ",";
   s += "\"altopic\":\""; s += jsonEsc(alTopic); s += "\",";
   s += "\"allast\":\""; s += jsonEsc(alLast); s += "\",\"online\":"; s += netOnline() ? "true," : "false,";
+  s += "\"clon\":"; s += cloudOn() ? "true," : "false,";      // your own PocketSPL Server
+  s += "\"clalerts\":"; s += clAlerts ? "true," : "false,";   // alerts go to the server instead of ntfy
+  s += "\"cllevels\":"; s += clLevels ? "true," : "false,";   // also send levels + log
+  s += "\"clurl\":\""; s += jsonEsc(clUrl); s += "\",";
+  s += "\"clkey\":\""; s += clKey.length() > 4 ? clKey.substring(clKey.length() - 4) : String(""); s += "\",";   // last 4 only
+  s += "\"clok\":"; s += clOkAt ? String((millis() - clOkAt) / 1000) : String("-1"); s += ",";
+  s += "\"cllast\":\""; s += jsonEsc(clLast); s += "\",";
   if (lastDenied) s += "\"denied\":true,";
   if (lastPinOk) s += "\"pinok\":true,";
   lastDenied = false; lastPinOk = false;
@@ -5595,7 +5680,8 @@ void sendState() {
 
 // Settings lock: these need the PIN when the meter is locked. Weighting, response, Reset MAX + Leq and markers don't.
 const char* const PROTECTED_ARGS[] = {"bright", "amber", "red", "cal", "cal94", "fcalback", "wifi", "limOn", "limDb", "limWin", "limW",
-                                      "dim", "apname", "apdefault", "newlog", "lockset", "lockoff", "factory", "sch", "schon", "alon", "altopic", "alhold", "alrep", "alback", "altest", "alnew"};
+                                      "dim", "apname", "apdefault", "newlog", "lockset", "lockoff", "factory", "sch", "schon", "alon", "altopic", "alhold", "alrep", "alback", "altest", "alnew",
+                                      "clurl", "clkey", "clclear", "cltest", "clalerts", "cllevels"};
 int verCmp(const String& a, const String& b) {   // compares "1.0.10" with "1.0.9" the right way
   int pa[3] = {0, 0, 0}, pb[3] = {0, 0, 0};
   sscanf(a.c_str(), "%d.%d.%d", &pa[0], &pa[1], &pa[2]); sscanf(b.c_str(), "%d.%d.%d", &pb[0], &pb[1], &pb[2]);
@@ -5663,11 +5749,26 @@ void handleSet() {
   if (server.hasArg("alback"))  { alBack = server.arg("alback").toInt() != 0; prefs.putBool("alBack", alBack); }
   if (server.hasArg("alon"))    { alOn = server.arg("alon").toInt() != 0; prefs.putBool("alOn", alOn); alOverSince = 0; alAlerted = false;
                                   if (alOn && !limOn) { limOn = true; limState = 0; savePrefs(); } }   // alerts use the limit alarm
+  if (server.hasArg("clurl")) {                // your own PocketSPL Server: address + key
+    String u = server.arg("clurl"); u.trim();
+    String k = server.hasArg("clkey") ? cleanKey(server.arg("clkey")) : clKey;
+    if (!validCloudUrl(u)) toast("Server", "Address not saved", 1500);
+    else if (k.length() < 10) toast("Server", "Key not saved", 1500);
+    else {
+      clUrl = u; clKey = k; prefs.putString("clUrl", clUrl); prefs.putString("clKey", clKey);
+      cloudForget(); clTestNow = true; toast("Server", "Saved", 1200);
+    }
+  }
+  if (server.hasArg("clalerts")) { clAlerts = server.arg("clalerts").toInt() != 0; prefs.putBool("clAl", clAlerts); clQn = 0;
+                                   if (clAlerts && !limOn) { limOn = true; limState = 0; savePrefs(); } }   // over-limit alerts need the limit alarm on
+  if (server.hasArg("cllevels")) { clLevels = server.arg("cllevels").toInt() != 0; prefs.putBool("clLvl", clLevels); clAckValid = false; }
+  if (server.hasArg("clclear")) { clUrl = ""; clKey = ""; prefs.remove("clUrl"); prefs.remove("clKey"); cloudForget(); toast("Server", "Off", 1200); }
+  if (server.hasArg("cltest") && cloudOn()) { clTestNow = true; clLast = ""; clFailed = false; toast("Server", "Sending...", 1200); }
   if (server.hasArg("altest")) {
     char t[64], b[120], w[32]; alertWhen(w, sizeof(w));
     snprintf(t, sizeof(t), "%s: test alert", apName.c_str());
     snprintf(b, sizeof(b), "Alerts are working. You'll get one when it's over %d dB%s.", limDb, w);
-    if (sendAlert(t, b, "default")) alLast = "Sending a test...";
+    if (sendAlert("test", t, b, "default")) alLast = "Sending a test...";
     toast("Alerts", "Test", 1200);
   }
   if (server.hasArg("schon")) { schEnabled = server.arg("schon").toInt() != 0; prefs.putBool("schon", schEnabled); }
@@ -5823,7 +5924,8 @@ void alertTask(void* arg) {                 // runs on its own so the meter neve
 String hostAlertTitle, hostAlertBody; int hostAlertsSent = 0;   // host tests read these
 #endif
 
-bool sendAlert(const char* title, const char* body, const char* prio) {
+bool sendAlert(const char* kind, const char* title, const char* body, const char* prio) {
+  if (cloudAlerts()) return cloudQueueAlert(kind, title, body, prio);   // owner chose: alerts go to their server, not ntfy
   if (!netOnline()) { alLast = "Not sent: the meter isn't on a WiFi network with internet"; return false; }
   if (alBusy) { alLast = "Not sent: still sending the last one"; return false; }
   alBusy = true; alResult = 0;
@@ -5863,7 +5965,7 @@ void alertTick(uint32_t now) {              // once a second
       snprintf(title, sizeof(title), "%s: over the limit", apName.c_str());
       snprintf(body, sizeof(body), "%.1f dB %s (%s), limit %d dB. Over for %lu min%s.",
                limVal, WN[limW == W_C ? 1 : 0], WINS[constrain(limWin, 0, 2)], limDb, (unsigned long)((now - alOverSince) / 60000UL), w);
-      sendAlert(title, body, "high");
+      sendAlert("over", title, body, "high");
       alAlerted = true; alLastAt = now;
     }
   } else {
@@ -5871,10 +5973,275 @@ void alertTick(uint32_t now) {              // once a second
       alertWhen(w, sizeof(w));
       snprintf(title, sizeof(title), "%s: back under the limit", apName.c_str());
       snprintf(body, sizeof(body), "%.1f dB %s (%s), limit %d dB%s.", limVal, WN[limW == W_C ? 1 : 0], WINS[constrain(limWin, 0, 2)], limDb, w);
-      sendAlert(title, body, "default");
+      sendAlert("back", title, body, "default");
     }
     alOverSince = 0; alAlerted = false;
   }
+}
+
+// ---------------- Remote support (optional, off by default; the owner turns it on) ----------------
+// Every 15 s the meter POSTs a health report to the support server:  <address>/api/meter/report
+// with  Authorization: Bearer <key>. Health only by default - software version, serial, model, and the
+// meter's state (mic, battery, WiFi signal, storage, uptime, why it last restarted, recent problems) - so
+// you can watch a meter and help diagnose it anywhere. Two extra choices (both off by default):
+//   "Send my alerts here (not ntfy)" - over-limit and battery notifications go to the server, which pushes
+//      them to your phone (no ntfy app). Waiting alerts ride along with the next report, or go straight away.
+//   "Include sound levels and logs"  - also send the live levels and the gig log; the meter then catches up
+//      on any log the server is missing (24 h kept, 60 min every 2 s).
+// Shown only in Settings on the phone page, with a status line and an off switch. Server: "PocketSPL Server".
+const uint32_t CL_EVERY_MS = 15000, CL_CATCHUP_MS = 2000, CL_RETRY_MS = 30000;
+const int CL_REC_MAX = 60, CL_MARK_MAX = 10, CL_Q_MAX = 4;
+struct ClAlert { char kind[8]; char title[64]; char body[200]; char prio[8]; };
+ClAlert clQ[CL_Q_MAX]; int clQn = 0, clQsent = 0;   // alerts waiting to go / how many the report in flight carries
+uint32_t clAckId = 0, clHave = 0; int clMk = 0; bool clAckValid = false;   // what the server has of this log
+uint32_t clLastAt = 0;
+volatile int clResult = 0;                  // set by the sending task: HTTP status, or <0 = failed
+volatile bool clBusy = false;
+String clReply;                             // the server's answer (written by the task before clBusy goes false)
+void setClockMs(int64_t ms);
+
+// a few recent problems, kept for the support report (and shown nowhere on the meter)
+const int ERR_MAX = 5;
+struct ErrRec { uint32_t at; char msg[56]; };
+ErrRec errLog[ERR_MAX]; int errHead = 0, errCount = 0;
+uint32_t uptimeSecs() {
+#ifdef ARDUINO_ARCH_ESP32
+  return (uint32_t)(esp_timer_get_time() / 1000000);   // 64-bit microsecond clock: no 49-day wrap
+#else
+  return millis() / 1000;
+#endif
+}
+void noteError(const char* msg) {
+  ErrRec& e = errLog[errHead];
+  e.at = uptimeSecs();
+  snprintf(e.msg, sizeof(e.msg), "%s", msg ? msg : "");
+  errHead = (errHead + 1) % ERR_MAX;
+  if (errCount < ERR_MAX) errCount++;
+}
+const char* resetReason() {                 // why the meter last restarted (helps spot crashes vs power loss)
+#ifdef ARDUINO_ARCH_ESP32
+  switch (esp_reset_reason()) {
+    case ESP_RST_POWERON:  return "power on";
+    case ESP_RST_SW:       return "software restart (e.g. update)";
+    case ESP_RST_PANIC:    return "crash";
+    case ESP_RST_INT_WDT:
+    case ESP_RST_TASK_WDT:
+    case ESP_RST_WDT:      return "watchdog (hang)";
+    case ESP_RST_BROWNOUT: return "brown-out (power dipped)";
+    case ESP_RST_DEEPSLEEP:return "wake from sleep";
+    case ESP_RST_EXT:      return "external reset";
+    default:               return "unknown";
+  }
+#else
+  return "n/a";
+#endif
+}
+
+bool cloudOn() { return clUrl.length() > 0 && clKey.length() > 0; }
+bool validCloudUrl(const String& u) {
+  if (u.length() < 10 || u.length() > 120) return false;
+  if (!u.startsWith("http://") && !u.startsWith("https://")) return false;
+  for (unsigned i = 0; i < u.length(); i++) { char c = u[i]; if (c <= ' ' || c == '"' || c == '\\' || c > '~') return false; }
+  return true;
+}
+String cleanKey(const String& in) {         // the key from the dashboard: letters, numbers and dashes, lower case
+  String k;
+  for (unsigned i = 0; i < in.length() && k.length() < 40; i++) { char c = (char)tolower((unsigned char)in[i]); if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-') k += c; }
+  return k;
+}
+bool cloudAlerts() { return cloudOn() && clAlerts && netOnline(); }
+void loadCloud() {
+  clUrl = prefs.getString("clUrl", ""); clKey = prefs.getString("clKey", "");
+  clAlerts = prefs.getBool("clAl", false); clLevels = prefs.getBool("clLvl", false);
+  if (!validCloudUrl(clUrl)) clUrl = "";
+  logId = rnd32();                          // the log that starts at switch-on
+}
+void cloudForget() {                        // new address or key: start again with a clean slate
+  clAckValid = false; clFailed = false; clLast = ""; clOkAt = 0; clLastAt = 0; clMore = false; clQn = 0;
+}
+
+bool cloudQueueAlert(const char* kind, const char* title, const char* body, const char* prio) {
+  if (!netOnline()) { alLast = "Not sent: the meter isn't on a WiFi network with internet"; return false; }
+  if (clQn >= CL_Q_MAX) { alLast = "Not sent: the server hasn't taken the last ones yet"; return false; }
+  ClAlert& a = clQ[clQn++];
+  snprintf(a.kind, sizeof(a.kind), "%s", kind); snprintf(a.title, sizeof(a.title), "%s", title);
+  snprintf(a.body, sizeof(a.body), "%s", body); snprintf(a.prio, sizeof(a.prio), "%s", prio);
+  alLast = "Sending to your server...";
+  clAlertNow = true;
+  return true;
+}
+
+static void jf(String& s, float v, bool ok) {   // a number with one decimal, or null
+  if (!ok || v != v || v > 1e6f || v < -1e6f) { s += "null"; return; }   // v != v: not a number
+  char b[16]; snprintf(b, sizeof(b), "%.1f", v); s += b;
+}
+
+String cloudBody() {                        // the report, as JSON
+  takeSnapshot();
+  bool warm = warmup > 0;
+  String s; s.reserve(clLevels ? 2800 : 900);
+  char b[200];
+  s += "{\"sn\":\""; s += jsonEsc(serialNo); s += "\",\"model\":\""; s += modelName();
+  s += "\",\"fw\":\"" FW_VERSION "\",\"board\":\"" BOARD_FLASH "\",\"name\":\""; s += jsonEsc(apName);
+  s += "\",\"levels\":"; s += clLevels ? "true" : "false";
+  // ---- health (always): the device's state, no sound levels ----
+  snprintf(b, sizeof(b), ",\"live\":{\"batt\":%d,\"chg\":%s,\"wired\":%s,\"standby\":%s,\"clip\":%s,\"micfault\":%s,\"rssi\":%d,\"up\":%lu,\"fs\":%s,\"rst\":\"",
+           (wiredModel || gauge == G_NONE) ? -1 : battPct, charging ? "true" : "false", wiredModel ? "true" : "false",
+           standby ? "true" : "false", (!warm && micClipping()) ? "true" : "false", micFaulty() ? "true" : "false",
+           netOnline() ? (int)WiFi.RSSI() : 0, (unsigned long)uptimeSecs(), fsOk ? "true" : "false");
+  s += b; s += resetReason(); s += "\",\"err\":[";
+  for (int i = 0; i < errCount; i++) {        // oldest first
+    int idx = (errHead - errCount + i + ERR_MAX) % ERR_MAX;
+    snprintf(b, sizeof(b), "%s[%lu,\"", i ? "," : "", (unsigned long)errLog[idx].at); s += b;
+    s += jsonEsc(String(errLog[idx].msg)); s += "\"]";
+  }
+  s += "]";
+  // ---- sound levels (only when the owner ticked "Include levels") ----
+  if (clLevels) {
+    snprintf(b, sizeof(b), ",\"w\":%d,\"fast\":", (int)wMode); s += b;
+    jf(s, snapFastDb(), !warm);
+    s += ",\"roll\":[";
+    for (int k = 0; k < 3; k++) {
+      float a = 0, c = 0;
+      bool okA = !warm && rollDb(k, W_A, a), okC = !warm && rollDb(k, W_C, c);
+      s += k ? ",[" : "["; jf(s, a, okA); s += ","; jf(s, c, okC); s += "]";
+    }
+    snprintf(b, sizeof(b), "],\"lim\":{\"on\":%s,\"db\":%d,\"win\":%d,\"w\":%d,\"st\":%d,\"val\":",
+             limOn ? "true" : "false", limDb, limWin, limW, limState); s += b;
+    jf(s, limVal, limReady);
+    snprintf(b, sizeof(b), "},\"dose\":%.1f", warm ? 0.0f : dosePct()); s += b;
+  }
+  s += "}";
+
+  // ---- alerts waiting to go to the server (over-limit / back-under / test) ----
+  s += ",\"al\":[";
+  clQsent = clQn;
+  for (int i = 0; i < clQn; i++) {
+    s += i ? ",{\"k\":\"" : "{\"k\":\""; s += jsonEsc(String(clQ[i].kind));
+    s += "\",\"t\":\""; s += jsonEsc(String(clQ[i].title));
+    s += "\",\"b\":\""; s += jsonEsc(String(clQ[i].body));
+    s += "\",\"p\":\""; s += jsonEsc(String(clQ[i].prio)); s += "\"}";
+  }
+  s += "]";
+
+  if (!clLevels) { clMore = false; s += "}"; return s; }   // health (+ any alerts) only: no log block
+
+  // the log minutes and markers the server doesn't have yet (copied under the lock, a few hundred bytes)
+  LogRec rec[CL_REC_MAX]; Marker mk[CL_MARK_MAX];
+  uint32_t lid, total, secs, from; int64_t t0; int n = 0, nmk = 0, mfirst, mcount;
+  portENTER_CRITICAL(&audioLock);
+  lid = logId; total = logTotal; secs = logSecs; t0 = logStartEpochMs; mcount = markCount;
+  bool same = clAckValid && clAckId == lid;
+  uint32_t oldest = total > (uint32_t)LOG_MAX ? total - LOG_MAX : 0;
+  from = same ? clHave : 0;
+  if (from < oldest) from = oldest;
+  if (from > total) from = total;
+  n = (total - from) > (uint32_t)CL_REC_MAX ? CL_REC_MAX : (int)(total - from);
+  for (int i = 0; i < n; i++) rec[i] = logRec[(from + i) % LOG_MAX];
+  mfirst = same ? clMk : 0;
+  if (mfirst > mcount) mfirst = mcount;
+  for (int i = mfirst; i < mcount && nmk < CL_MARK_MAX; i++) mk[nmk++] = marks[i];
+  portEXIT_CRITICAL(&audioLock);
+  clMore = from + n < total || mfirst + nmk < mcount;   // more to send: the next report goes in 2 s
+
+  snprintf(b, sizeof(b), ",\"log\":{\"id\":%lu,\"t0\":%lld,\"secs\":%lu,\"total\":%lu,\"first\":%lu,\"rec\":[",
+           (unsigned long)lid, (long long)t0, (unsigned long)secs, (unsigned long)total, (unsigned long)from); s += b;
+  for (int i = 0; i < n; i++) {
+    snprintf(b, sizeof(b), "%s[%d,%d,%d,%d]", i ? "," : "", rec[i].laeq, rec[i].lceq, rec[i].lafmax, rec[i].lcpeak); s += b;
+  }
+  snprintf(b, sizeof(b), "],\"mfirst\":%d,\"marks\":[", mfirst); s += b;
+  for (int i = 0; i < nmk; i++) {
+    mk[i].text[24] = 0;
+    snprintf(b, sizeof(b), "%s[%lu,\"", i ? "," : "", (unsigned long)mk[i].sec); s += b;
+    s += jsonEsc(String(mk[i].text)); s += "\"]";
+  }
+  s += "]}}";
+  return s;
+}
+
+#ifdef ARDUINO_ARCH_ESP32
+struct CloudMsg { String url, key, body; };
+void cloudTask(void* arg) {                 // runs on its own so the meter never stalls while sending
+  CloudMsg* m = (CloudMsg*)arg;
+  int code = -1; String reply;
+  {
+    String u = m->url;
+    while (u.endsWith("/")) u.remove(u.length() - 1);
+    u += "/api/meter/report";
+    bool https = u.startsWith("https://");
+    NetworkClientSecure cs; NetworkClient cp;
+    if (https) cs.useBuiltinCACertBundle();
+    HTTPClient h; h.setTimeout(8000); h.setConnectTimeout(8000);
+    if (https ? h.begin(cs, u) : h.begin(cp, u)) {
+      h.addHeader("Content-Type", "application/json");
+      h.addHeader("Authorization", "Bearer " + m->key);
+      code = h.POST(m->body);
+      if (code > 0) reply = h.getString();
+      h.end();
+    }
+  }
+  delete m;
+  clReply = reply;
+  clResult = code ? code : -1; clBusy = false;
+  vTaskDelete(NULL);
+}
+#else
+String hostCloudBody; int hostCloudReports = 0;   // host tests read these
+#endif
+
+void cloudDone(int code, const String& reply) {   // the last report finished (main loop)
+  char w[32]; alertWhen(w, sizeof(w));
+  if (code >= 200 && code < 300) {
+    clOkAt = millis(); clLast = ""; clFailed = false;
+    int li = reply.indexOf("\"log\"");                 // {"ok":true,"t":...,"log":{"id":N,"have":N,"mk":N}}
+    if (li >= 0) {
+      int a = reply.indexOf("\"id\":", li), h = reply.indexOf("\"have\":", li), m = reply.indexOf("\"mk\":", li);
+      if (a >= 0 && h >= 0 && m >= 0) {
+        clAckId = strtoul(reply.c_str() + a + 5, NULL, 10);
+        clHave = strtoul(reply.c_str() + h + 7, NULL, 10);
+        clMk = atoi(reply.c_str() + m + 5);
+        clAckValid = true;
+      }
+    }
+    int ti = reply.indexOf("\"t\":");                  // the server's clock: used only when the meter has none
+    if (ti >= 0) {
+      int64_t t = strtoll(reply.c_str() + ti + 4, NULL, 10);
+      if (t > 1600000000000LL && !clockSet) setClockMs(t);
+      if (t > 1600000000000LL && logStartEpochMs == 0) logStartEpochMs = t - (int64_t)logSecs * 1000;
+    }
+    if (clQsent > 0) {                                 // the alerts it carried are on the server now
+      for (int i = clQsent; i < clQn; i++) clQ[i - clQsent] = clQ[i];
+      clQn -= clQsent;
+      alLast = String("Sent to your server") + w;
+    }
+  } else {
+    clFailed = true;
+    clLast = code == 401 ? String("The server doesn't know this key. Check it on the dashboard (Settings > Meters).")
+           : code < 0    ? String("Couldn't reach the server. Check the address, and that the meter's network can reach it.")
+           : String("The server answered with an error (") + String(code) + ").";
+    if (clQsent > 0) alLast = "Not sent yet: " + clLast + " Trying again.";
+  }
+  clQsent = 0;
+}
+
+void cloudTick(uint32_t now) {              // every loop
+  if (!clBusy && clResult) { int code = clResult; clResult = 0; cloudDone(code, clReply); clReply = ""; }
+  if (!cloudOn() || clBusy || !netOnline()) return;
+  uint32_t wait = clFailed ? CL_RETRY_MS : clMore ? CL_CATCHUP_MS : CL_EVERY_MS;
+  if (clAlertNow && !clFailed) wait = 0;    // an alert goes straight away
+  if (clTestNow) wait = 0;                  // so does a test from the phone
+  if (clLastAt && now - clLastAt < wait) return;
+  clLastAt = now ? now : 1; clAlertNow = false; clTestNow = false;
+#ifdef ARDUINO_ARCH_ESP32
+  CloudMsg* m = new CloudMsg();
+  m->url = clUrl; m->key = clKey; m->body = cloudBody();
+  clBusy = true; clResult = 0;
+  if (xTaskCreate(cloudTask, "cloud", 12288, m, 1, NULL) != pdPASS) {
+    delete m; clBusy = false; clQsent = 0; clFailed = true; clLast = "Not sent: out of memory";
+  }
+#else
+  hostCloudBody = cloudBody(); hostCloudReports++; clQsent = 0;
+#endif
 }
 
 // ---------------- Clock + on/off schedule (wired model) ----------------
@@ -6829,7 +7196,7 @@ void netService(uint32_t now) {            // runs every loop: joining, losing a
         netMsg = "Joining " + joinSsid + "...";
       } else {
         WiFi.disconnect(); startAP(false); netMode = NET_AP;
-        netMsg = "Couldn't join a saved network, using the meter's own WiFi";
+        netMsg = "Couldn't join a saved network, using the meter's own WiFi"; noteError("could not join saved WiFi");
         toast("WiFi on", apName.substring(0, 21).c_str(), 2500);
       }
     }
@@ -6882,6 +7249,11 @@ void gigReset() {
   secN = 0; minSecs = 0; minMaxFA = 0; minPeakC = 0;
   doseE = 0; doseSecs = 0; logTotal = 0; logSecs = 0; markCount = 0;
   logStartEpochMs = 0;
+#ifdef ARDUINO_ARCH_ESP32
+  logId = esp_random();                     // a new log = a new entry on the server
+#else
+  logId = (uint32_t)rand();
+#endif
 }
 void gigSecond(const float ms[3]) {        // one finished second
   for (int k = 0; k < 3; k++)
@@ -9826,9 +10198,10 @@ void setup() {
   if (!parseSchedule(prefs.getString("sch", ""))) schN = 0;
   schEnabled = prefs.getBool("schon", false);
   loadAlerts();
+  loadCloud();
   Serial.printf("%s %s  serial %s\n", FW_TAG, FLASH_TAG, serialNo.c_str());   // e.g. POCKETSPL-FW PS-1 1.0.0  serial PSPL-0007
   fsOk = LittleFS.begin(true);             // flash storage for saved gig logs (formats itself the first time)
-  if (!fsOk) Serial.println("Storage: not available (check Tools > Partition Scheme)");
+  if (!fsOk) { Serial.println("Storage: not available (check Tools > Partition Scheme)"); noteError("storage not available"); }
   archiveCurrentLog();                     // the log from before switch-off becomes a saved log
 
   SPI.begin(PIN_OLED_SCK, -1, PIN_OLED_MOSI, PIN_OLED_CS);
@@ -9957,6 +10330,7 @@ void loop() {
   if (wiredModel && !scheduleActive()) checkNightOver();   // with a schedule, each session is its own log
   scheduleTick(now);
   alertTick(now);
+  cloudTick(now);
 
   // ---- Button ----
   int m = pollButton(btn);

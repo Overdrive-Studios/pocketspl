@@ -1,2 +1,2 @@
-Fixes the level graph breaking into dots and dashes (mostly after turning the phone sideways): it is one unbroken trace again.
-Smoother RTA that fits the screen sideways.
+New: connect the meter to your own PocketSPL Server (Settings > General) to check on it from anywhere. Off unless you turn it on.
+Alerts can go through your server instead of the ntfy app.
