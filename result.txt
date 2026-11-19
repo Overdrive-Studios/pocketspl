@@ -1,11 +1,11 @@
-run 44487088424 sha 3a50e5da186552cc96e465ecd57f8c28e12009f6
+run 44487979740 sha 0df9ed39adfdb0fa5ba9f9f6135c275337c81733
 build success
 deploy success
 {
-  "version": "1.1.29",
-  "notes": "WiFi settings are now a tidy list like General: Saved networks, Add a network and the meter's own WiFi each open their own page.\nThe Gig page is split into clear sections: now, the per-minute graph, and saved gigs.",
-  "url": "fw/PocketSPL-1.1.29.bin",
-  "size": 1756224,
-  "url_4mb": "fw/PocketSPL-1.1.29-4mb.bin",
-  "size_4mb": 1759184
+  "version": "1.1.30",
+  "notes": "Phone turned sideways: the dial now fits the screen.\nThe saved gig report slides up like an iPhone sheet and slides away when you tap Done.",
+  "url": "fw/PocketSPL-1.1.30.bin",
+  "size": 1756736,
+  "url_4mb": "fw/PocketSPL-1.1.30-4mb.bin",
+  "size_4mb": 1759696
 }
