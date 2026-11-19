@@ -1,2 +1,2 @@
-New screen saver (phone: Settings > General > Screen saver). Turn it on or off, choose when it kicks in, whether the screen goes off or dims, and whether a loud level brings it back.
-Any button press now always brings the screen back. That press does nothing else.
+Settings > General is now a tidy list: tap Screen, Limit alarm, Alerts, Calibration and the rest to open each one.
+Screen saver settings are under General > Screen.
