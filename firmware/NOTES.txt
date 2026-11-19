@@ -1,1 +1,1 @@
-Changing the look no longer shows a pop-up on the meter.
+Screen saver: switch on any or all of amber level, red level and over the limit to bring the screen back by itself. The button always wakes it.

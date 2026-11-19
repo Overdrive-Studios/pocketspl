@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.36"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.37"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3272,7 +3272,7 @@ const int LIM_WARN_DB = 3;   // amber this many dB below the limit
 bool ssOn = true;            // screen saver on
 int  ssSecs = 60;            // kicks in after this many seconds without a press
 int  ssMode = 0;             // 0 = turn the screen off, 1 = dim it
-int  ssWake = 0;             // also wake by itself: 0 = button only, 1 = when the level reaches red, 2 = over the limit alarm
+int  ssWake = 0;             // also wakes by itself, any of these ticked: 1 = level reaches red, 2 = over the limit alarm, 4 = level reaches amber
 
 uint16_t levelColour(float db) {
   if (db >= redFrom) return C_RED;
@@ -3568,7 +3568,7 @@ void savePrefs() {
   prefs.putUChar("amb", amberFrom); prefs.putUChar("red", redFrom);
   prefs.putUChar("bri", brightness); prefs.putBool("wifi", wifiOn);
   prefs.putBool("limOn", limOn); prefs.putUChar("limDb", limDb); prefs.putUChar("limWin", limWin); prefs.putUChar("limW", limW);
-  prefs.putBool("ssOn", ssOn); prefs.putUShort("ssSecs", ssSecs); prefs.putUChar("ssMode", ssMode); prefs.putUChar("ssWake", ssWake);
+  prefs.putBool("ssOn", ssOn); prefs.putUShort("ssSecs", ssSecs); prefs.putUChar("ssMode", ssMode); prefs.putUChar("ssWk", ssWake);
   prefs.putUChar("theme", theme);
 }
 
@@ -4342,9 +4342,12 @@ const char PAGE[] PROGMEM =
 "    <div id=\"ssOpts\">\n"
 "    <div class=\"ctl stack\"><span>Turns off after</span><div class=\"seg\" id=\"segSsSecs\"><button type=\"button\" data-v=\"30\">30 s</button><button type=\"button\" data-v=\"60\">1 min</button><button type=\"button\" data-v=\"300\">5 min</button><button type=\"button\" data-v=\"600\">10 min</button><button type=\"button\" data-v=\"1800\">30 min</button></div></div>\n"
 "    <div class=\"ctl stack\"><span>What the screen does</span><div class=\"seg\" id=\"segSsMode\"><button type=\"button\" data-v=\"0\">Off</button><button type=\"button\" data-v=\"1\">Dim</button></div></div>\n"
-"    <div class=\"ctl stack\"><span>Comes back on with</span><div class=\"seg\" id=\"segSsWake\"><button type=\"button\" data-v=\"0\">Button</button><button type=\"button\" data-v=\"1\">Red level</button><button type=\"button\" data-v=\"2\">Over the limit</button></div></div>\n"
+"    <p class=\"note\" style=\"margin:14px 0 2px\">Also comes back on by itself when:</p>\n"
+"    <label class=\"check\"><input type=\"checkbox\" class=\"ssWk\" data-b=\"4\"> The level reaches amber</label>\n"
+"    <label class=\"check\"><input type=\"checkbox\" class=\"ssWk\" data-b=\"1\"> The level reaches red</label>\n"
+"    <label class=\"check\"><input type=\"checkbox\" class=\"ssWk\" data-b=\"2\"> It's over the limit</label>\n"
 "    </div>\n"
-"    <p class=\"note\">A press always brings the screen back, and that press does nothing else. Red level or Over limit also brings it back by itself when it gets loud.</p>\n"
+"    <p class=\"note\">A press always brings the screen back, and that press does nothing else.</p>\n"
 "    </div>\n"
 "  </div>\n"
 "\n"
@@ -4675,7 +4678,8 @@ const char PAGE[] PROGMEM =
 "    document.querySelectorAll(\"#segLimW button\").forEach(b=>b.classList.toggle(\"on\",(+b.dataset.v===1)===(L.w===1)));\n"
 "    const who=L.on&&L.db===100&&L.win===2&&L.w!==1; $(\"whoStd\").textContent=who?\"✓ Venue standard, 100 dB(A) over 15 min\":\"Use the venue standard (100 dB(A), 15 min)\"; $(\"whoStd\").classList.toggle(\"on\",who); }\n"
 "  if(st.ss){ if(document.activeElement!==$(\"ssOn\")) $(\"ssOn\").checked=st.ss.on; $(\"ssOpts\").hidden=!st.ss.on;\n"
-"    [[\"segSsSecs\",st.ss.secs],[\"segSsMode\",st.ss.mode],[\"segSsWake\",st.ss.wake]].forEach(([id,v])=>document.querySelectorAll(\"#\"+id+\" button\").forEach(b=>b.classList.toggle(\"on\",+b.dataset.v===v))); }\n"
+"    document.querySelectorAll(\".ssWk\").forEach(c=>{ if(document.activeElement!==c) c.checked=!!(st.ss.wake & +c.dataset.b); });\n"
+"    [[\"segSsSecs\",st.ss.secs],[\"segSsMode\",st.ss.mode]].forEach(([id,v])=>document.querySelectorAll(\"#\"+id+\" button\").forEach(b=>b.classList.toggle(\"on\",+b.dataset.v===v))); }\n"
 "}\n"
 "let gigLog=null;\n"
 "async function loadLog(){\n"
@@ -4733,7 +4737,7 @@ const char PAGE[] PROGMEM =
 "$(\"ssOn\").onchange=()=>set(\"ss=\"+($(\"ssOn\").checked?1:0),$(\"ssOn\").checked?\"Screen saver on\":\"Screen stays on\");\n"
 "document.querySelectorAll(\"#segSsSecs button\").forEach(b=>b.onclick=()=>set(\"sssecs=\"+b.dataset.v,\"After \"+b.textContent));\n"
 "document.querySelectorAll(\"#segSsMode button\").forEach(b=>b.onclick=()=>set(\"ssmode=\"+b.dataset.v,b.dataset.v===\"1\"?\"Dims the screen\":\"Turns the screen off\"));\n"
-"document.querySelectorAll(\"#segSsWake button\").forEach(b=>b.onclick=()=>set(\"sswake=\"+b.dataset.v,b.textContent));\n"
+"document.querySelectorAll(\".ssWk\").forEach(c=>c.onchange=()=>{ let m=0; document.querySelectorAll(\".ssWk\").forEach(x=>{ if(x.checked) m|=+x.dataset.b; }); set(\"sswake=\"+m, m?\"Wakes by itself too\":\"Wakes with the button only\"); });\n"
 "\n"
 "$(\"freeze\").onclick=()=>{ frozen=!frozen; $(\"freeze\").textContent=frozen?\"Frozen\":\"Freeze\"; $(\"freeze\").classList.toggle(\"on\",frozen); render(); };\n"
 "\n"
@@ -5963,7 +5967,7 @@ void handleSet() {
   if (server.hasArg("ss"))     { ssOn = server.arg("ss").toInt() != 0; savePrefs(); }
   if (server.hasArg("sssecs")) { ssSecs = constrain(server.arg("sssecs").toInt(), 10, 3600); savePrefs(); }
   if (server.hasArg("ssmode")) { ssMode = server.arg("ssmode").toInt() == 1 ? 1 : 0; savePrefs(); }
-  if (server.hasArg("sswake")) { ssWake = constrain(server.arg("sswake").toInt(), 0, 2); savePrefs(); }
+  if (server.hasArg("sswake")) { ssWake = constrain(server.arg("sswake").toInt(), 0, 7); savePrefs(); }
   if (server.hasArg("apname") || server.hasArg("apdefault")) {   // the meter's own WiFi name / password
     bool def = server.hasArg("apdefault");
     String n = def ? String(DEFAULT_WIFI_NAME) : server.arg("apname");
@@ -10174,14 +10178,15 @@ void setup() {
   limW = prefs.getUChar("limW", W_A) == W_C ? W_C : W_A;
   if (prefs.isKey("ssOn")) {
     ssOn = prefs.getBool("ssOn", true); ssSecs = prefs.getUShort("ssSecs", 60);
-    ssMode = prefs.getUChar("ssMode", 0); ssWake = prefs.getUChar("ssWake", 0);
+    ssMode = prefs.getUChar("ssMode", 0); if (prefs.isKey("ssWk")) ssWake = prefs.getUChar("ssWk", 0);
+    else { int o = prefs.getUChar("ssWake", 0); ssWake = o == 1 ? 3 : o == 2 ? 2 : 0; }   // older single choice: "red" also meant over the limit
   } else {                                 // first start on this version: carry over the old dim setting
     bool wired = prefs.getBool("wired", false);
     int old = prefs.getUShort("dim", wired ? 600 : 60);
     if (wired && old > 0 && old < 600) old = 600;   // wired model: it used to go off after 10 min
     ssOn = old > 0; ssSecs = old > 0 ? old : (wired ? 600 : 60); ssMode = 0; ssWake = wired ? 2 : 0;
   }
-  ssSecs = constrain(ssSecs, 10, 3600); if (ssMode > 1) ssMode = 0; if (ssWake > 2) ssWake = 0;
+  ssSecs = constrain(ssSecs, 10, 3600); if (ssMode > 1) ssMode = 0; ssWake &= 7;
   theme = prefs.getUChar("theme", DEFAULT_THEME); applyTheme();
   if (!prefs.getBool("ui2", false)) {      // first start on this version: switch to the new look once
     theme = TH_CLEAN; prefs.putUChar("theme", theme); prefs.putBool("ui2", true); applyTheme();
@@ -10394,7 +10399,8 @@ void loop() {
 
   // ---- Screen saver ----
   {
-    bool loud = (ssWake == 1 && snapFastDb() >= redFrom) || (ssWake >= 1 && limOn && limState == 2);
+    float fdb = snapFastDb();
+    bool loud = ((ssWake & 4) && fdb >= amberFrom) || ((ssWake & 1) && fdb >= redFrom) || ((ssWake & 2) && limOn && limState == 2);
     uint32_t tNow = millis();                // fresh clock: a button press may have set lastActivity after "now" was read
     if (loud || calState != CAL_IDLE) lastActivity = tNow;   // wakes by itself while loud, then waits the full time again
     int32_t quiet = (int32_t)(tNow - lastActivity);          // signed, so a press a moment "ahead" counts as just now, not 49 days ago
