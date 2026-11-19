@@ -1,1 +1,1 @@
-Screen saver: switch on any or all of amber level, red level and over the limit to bring the screen back by itself. The button always wakes it.
+Polish: on/off switches are easier to see in light mode, a tidier network status, a cleaner PIN box, alert options that fit on one line, and a proper empty space when there is no start-up logo.
