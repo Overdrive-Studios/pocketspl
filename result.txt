@@ -1,11 +1,11 @@
-run 44453028412 sha ae319d8888d6504f7388e24de37334f8032db32e
+run 44455242954 sha c79f7640c0a1b2f0281d26d9e3394017aca13bd3
 build success
 deploy success
 {
-  "version": "1.1.24",
-  "notes": "Removes the PocketSPL Server connection. Everything else is the same as before.",
-  "url": "fw/PocketSPL-1.1.24.bin",
-  "size": 1738512,
-  "url_4mb": "fw/PocketSPL-1.1.24-4mb.bin",
-  "size_4mb": 1741440
+  "version": "1.1.25",
+  "notes": "New screen saver (phone: Settings > General > Screen saver). Turn it on or off, choose when it kicks in, whether the screen goes off or dims, and whether a loud level brings it back.\nAny button press now always brings the screen back. That press does nothing else.",
+  "url": "fw/PocketSPL-1.1.25.bin",
+  "size": 1741904,
+  "url_4mb": "fw/PocketSPL-1.1.25-4mb.bin",
+  "size_4mb": 1744848
 }
