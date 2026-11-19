@@ -1,11 +1,11 @@
-run 44507834772 sha 3c4f73f1f9259cf4691e051d02db62263ffe4d73
+run 44509130169 sha 9f70ed67cd2e6c7b65d7831244d4f4b662e23a47
 build success
 deploy success
 {
-  "version": "1.1.38",
-  "notes": "Polish: on/off switches are easier to see in light mode, a tidier network status, a cleaner PIN box, alert options that fit on one line, and a proper empty space when there is no start-up logo.",
-  "url": "fw/PocketSPL-1.1.38.bin",
-  "size": 1765760,
-  "url_4mb": "fw/PocketSPL-1.1.38-4mb.bin",
-  "size_4mb": 1768720
+  "version": "1.1.39",
+  "notes": "Gig page: the rolling averages line up neatly, and ones still filling up show in grey (with a short note) instead of an asterisk.",
+  "url": "fw/PocketSPL-1.1.39.bin",
+  "size": 1766256,
+  "url_4mb": "fw/PocketSPL-1.1.39-4mb.bin",
+  "size_4mb": 1769216
 }
