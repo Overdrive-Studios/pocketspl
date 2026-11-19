@@ -129,6 +129,7 @@
 #include <Update.h>
 #include <LittleFS.h>
 #include "esp_wifi.h"
+#include "esp_netif.h"
 #include "esp_ota_ops.h"
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1351.h>
@@ -156,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.32"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.33"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -5643,9 +5644,22 @@ void wifiMode(wifi_mode_t m) {              // set the WiFi mode, always with Au
   WiFi.mode(m);
   if (m != WIFI_OFF) esp_wifi_set_country_code("AU", true);
 }
+// The meter's own WiFi hands out addresses without a gateway or DNS server. Phones then treat it as a
+// local-only network: they talk to the meter over it but keep using mobile data for the internet, so the
+// phone page can still check for and download updates while joined to the meter.
+void apLocalOnly() {
+  esp_netif_t* ap = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
+  if (!ap) return;
+  uint8_t off = 0;
+  esp_netif_dhcps_stop(ap);
+  esp_netif_dhcps_option(ap, ESP_NETIF_OP_SET, ESP_NETIF_ROUTER_SOLICITATION_ADDRESS, &off, sizeof(off));   // no gateway
+  esp_netif_dhcps_option(ap, ESP_NETIF_OP_SET, ESP_NETIF_DOMAIN_NAME_SERVER, &off, sizeof(off));            // no DNS server
+  esp_netif_dhcps_start(ap);
+}
 void startAP(bool keepSta) {
   wifiMode(keepSta ? WIFI_AP_STA : WIFI_AP);
   WiFi.softAP(apName.c_str(), apPass.c_str(), 6, 0, 2);
+  apLocalOnly();
   WiFi.setSleep(false);                              // radio always awake: no dropped phones
   if (!keepSta) WiFi.setTxPower(WIFI_POWER_15dBm);    // own network: strong enough to hold the phone through the case
   apOn = true;

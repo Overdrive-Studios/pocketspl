@@ -1,1 +1,1 @@
-Name your gigs: type a name at the top of the Gig page, and it stays with the gig when it's saved. Saved gigs can be renamed by tapping the title when you View them.
+Updates while on the meter's own WiFi: phones now keep using mobile data for the internet while joined to the meter, so the phone page can download updates there. (Rejoin the meter's WiFi once after this update.)
