@@ -1,1 +1,1 @@
-Fixes the screen flashing when you press the button.
+The screen now wakes cleanly from the screen saver: no flash, and no old reading showing for a moment.

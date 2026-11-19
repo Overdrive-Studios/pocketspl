@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.34"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.35"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3456,13 +3456,17 @@ bool screenDim = false;
 uint32_t lastActivity = 0, ssAssertAt = 0;
 extern bool lastFrameOk;
 // puts the display in the state wanted; sends the commands again every few seconds so a missed one can't stick
+uint32_t screenOnAt = 0;                   // screen coming back: switched on once a fresh picture is in
+void screenAfterPush() { if (screenOnAt) { oled.sendCommand(0xAF); screenOnAt = 0; } }
 void applyScreen(bool off, bool dim, uint32_t now, bool force) {
-  bool resend = force || now - ssAssertAt > 3000;
-  if (off != screenOff || resend) {
-    oled.sendCommand(off ? 0xAE : 0xAF);   // display off (sleep) / on
-    if (!off && screenOff) lastFrameOk = false;   // coming back: send the whole picture again
-    screenOff = off;
-  }
+  bool resend = force || (int32_t)(now - ssAssertAt) > 3000;
+  if (screenOnAt && (int32_t)(now - screenOnAt) > 200) screenAfterPush();   // no frame came: switch on anyway
+  if (off) {
+    if (!screenOff || resend) oled.sendCommand(0xAE);             // display off (sleep)
+    screenOff = true; screenOnAt = 0;
+  } else if (screenOff) {                    // coming back: draw the whole picture first, then switch on, so the old one never shows
+    screenOff = false; lastFrameOk = false; screenOnAt = now | 1;
+  } else if (resend && !screenOnAt) oled.sendCommand(0xAF);
   if (dim != screenDim || resend) { setBrightness(dim ? 1 : brightness); screenDim = dim; }
   if (resend) ssAssertAt = now;
 }
@@ -9850,6 +9854,7 @@ void drawFrame(uint32_t now) {             // draw whichever screen is showing a
   else if (rMode == R_GIG) { if (clean) clGig(now); else drawGig(now); }
   else { if (clean) clMeter(now, snapDb(), snapFastDb()); else drawMeter(now, snapDb(), snapFastDb()); }
   if (pushServe) pushCanvasServed(); else pushCanvas();
+  screenAfterPush();                         // screen was waking: the fresh picture is in, switch it on
 }
 
 // GIG screen: the limit (or 15-min) Leq big, the 1 and 5 minute values, a bar against the limit, and the dose
@@ -10398,7 +10403,7 @@ void loop() {
     else if (!idle && dimmed) dimmed = false;
     bool off = dimmed && ssMode == 0, dim = dimmed && ssMode == 1;
     if (standby) { off = !(standbyShowUntil && (int32_t)(now - standbyShowUntil) < 0); dim = false; }
-    applyScreen(off, dim, now, false);
+    applyScreen(off, dim, tNow, false);
   }
 
   // ---- Battery every 2 s ----
