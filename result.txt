@@ -1,0 +1,11 @@
+run 44452704887 sha f31d1230a670627b4639145c7c31ad384adae655
+build failure
+deploy skipped
+{
+  "version": "1.1.23",
+  "notes": "New: connect the meter to your own PocketSPL Server (Settings > General) to check on it from anywhere. Off unless you turn it on.\nAlerts can go through your server instead of the ntfy app.",
+  "url": "fw/PocketSPL-1.1.23.bin",
+  "size": 1754032,
+  "url_4mb": "fw/PocketSPL-1.1.23-4mb.bin",
+  "size_4mb": 1757008
+}
