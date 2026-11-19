@@ -1,1 +1,2 @@
-Cleaner phone app: the big number sits neatly inside the dial, the RTA fills the screen with bars that turn amber then red as they climb, and long help text folds away under "How it works" links.
+WiFi settings are now a tidy list like General: Saved networks, Add a network and the meter's own WiFi each open their own page.
+The Gig page is split into clear sections: now, the per-minute graph, and saved gigs.
