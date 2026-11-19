@@ -1,11 +1,11 @@
-run 44487979740 sha 0df9ed39adfdb0fa5ba9f9f6135c275337c81733
+run 44490100479 sha 273d1158d7b0ce5fc0b0d00c8f80bef58fae4a8a
 build success
 deploy success
 {
-  "version": "1.1.30",
-  "notes": "Phone turned sideways: the dial now fits the screen.\nThe saved gig report slides up like an iPhone sheet and slides away when you tap Done.",
-  "url": "fw/PocketSPL-1.1.30.bin",
-  "size": 1756736,
-  "url_4mb": "fw/PocketSPL-1.1.30-4mb.bin",
-  "size_4mb": 1759696
+  "version": "1.1.31",
+  "notes": "The meter now keeps the last hour of the level graph itself. If your phone wasn't connected, open the page and the graph fills in, spikes and all.\nNew 1 min / 5 min / 15 min / 1 hour buttons under the graph.",
+  "url": "fw/PocketSPL-1.1.31.bin",
+  "size": 1760016,
+  "url_4mb": "fw/PocketSPL-1.1.31-4mb.bin",
+  "size_4mb": 1762896
 }
