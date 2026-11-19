@@ -156,7 +156,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.29"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.30"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3941,6 +3941,8 @@ const char PAGE[] PROGMEM =
 "  .graphcard canvas{aspect-ratio:auto;height:calc(100vh - 120px);min-height:180px}\n"
 "  .rtac{aspect-ratio:auto;height:calc(100vh - 205px);min-height:130px}\n"
 "  .card[data-tab=\"rta\"] .rtahead{margin-bottom:4px}\n"
+"  .card.pghead,.card.menu{grid-column:1/-1}\n"
+"  body.th-clean #meter .dial{width:min(250px,calc(100dvh - 150px))}\n"
 "}\n"
 "/* iPad and wider: two columns */\n"
 "@media (min-width:760px){\n"
@@ -3948,6 +3950,7 @@ const char PAGE[] PROGMEM =
 "  header,.limbanner,.updbanner,.card.subnav,.card[data-tab=\"rta\"],.card.graphcard{grid-column:1/-1}\n"
 "  .card{margin-bottom:0}\n"
 "  .big{font-size:150px}\n"
+"  .card.pghead,.card.menu{grid-column:1/-1}\n"
 "}\n"
 "@media (prefers-reduced-motion:reduce){*{transition:none!important}}\n"
 "/* Apple-style motion: presses give, pages slide, switches glide */\n"
@@ -5377,9 +5380,10 @@ const char PAGE[] PROGMEM =
 "    v.querySelector(\"[data-s]\").onclick=e=>{\n"
 "      if(homeApp){ window.open(url,\"_blank\"); return; }       // the home-screen app can't save files itself\n"
 "      saveCsv(url,name,e.currentTarget); };\n"
-"    const close=()=>{ v.remove(); document.body.style.overflow=\"\"; };\n"
+"    const sheet=(a,b,done)=>{ if(!v.animate||(window.matchMedia&&matchMedia(\"(prefers-reduced-motion: reduce)\").matches)){ if(done) done(); return; } const an=v.animate([{transform:a},{transform:b}],{duration:420,easing:\"cubic-bezier(.32,.72,0,1)\"}); if(done) an.onfinish=done; };\n"
+"    const close=()=>sheet(\"none\",\"translateY(100%)\",()=>{ v.remove(); document.body.style.overflow=\"\"; });\n"
 "    v.querySelectorAll(\"[data-x]\").forEach(b=>b.onclick=close);\n"
-"    document.body.append(v); document.body.style.overflow=\"hidden\";\n"
+"    document.body.append(v); document.body.style.overflow=\"hidden\"; sheet(\"translateY(100%)\",\"none\");\n"
 "    requestAnimationFrame(()=>chart(v.querySelector(\"canvas\"),mins,amb,red));\n"
 "  };\n"
 "})();\n"

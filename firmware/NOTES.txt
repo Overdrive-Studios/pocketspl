@@ -1,2 +1,2 @@
-WiFi settings are now a tidy list like General: Saved networks, Add a network and the meter's own WiFi each open their own page.
-The Gig page is split into clear sections: now, the per-minute graph, and saved gigs.
+Phone turned sideways: the dial now fits the screen.
+The saved gig report slides up like an iPhone sheet and slides away when you tap Done.
