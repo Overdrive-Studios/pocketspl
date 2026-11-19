@@ -1,11 +1,11 @@
-run 44457161123 sha 8fb1110f83ff7be9e6a25973706e206493e5d9e1
+run 44486026022 sha aad6b3f69bb42236db79d200e39abca4e7081676
 build success
 deploy success
 {
-  "version": "1.1.27",
-  "notes": "Smoother phone app: pages slide in and out like an iPhone, buttons give when pressed, and on/off settings are now iPhone-style switches.",
-  "url": "fw/PocketSPL-1.1.27.bin",
-  "size": 1751888,
-  "url_4mb": "fw/PocketSPL-1.1.27-4mb.bin",
-  "size_4mb": 1754848
+  "version": "1.1.28",
+  "notes": "Cleaner phone app: the big number sits neatly inside the dial, the RTA fills the screen with bars that turn amber then red as they climb, and long help text folds away under \"How it works\" links.",
+  "url": "fw/PocketSPL-1.1.28.bin",
+  "size": 1753920,
+  "url_4mb": "fw/PocketSPL-1.1.28-4mb.bin",
+  "size_4mb": 1756880
 }
