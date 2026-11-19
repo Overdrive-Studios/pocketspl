@@ -1,11 +1,11 @@
-run 44486026022 sha aad6b3f69bb42236db79d200e39abca4e7081676
+run 44487088424 sha 3a50e5da186552cc96e465ecd57f8c28e12009f6
 build success
 deploy success
 {
-  "version": "1.1.28",
-  "notes": "Cleaner phone app: the big number sits neatly inside the dial, the RTA fills the screen with bars that turn amber then red as they climb, and long help text folds away under \"How it works\" links.",
-  "url": "fw/PocketSPL-1.1.28.bin",
-  "size": 1753920,
-  "url_4mb": "fw/PocketSPL-1.1.28-4mb.bin",
-  "size_4mb": 1756880
+  "version": "1.1.29",
+  "notes": "WiFi settings are now a tidy list like General: Saved networks, Add a network and the meter's own WiFi each open their own page.\nThe Gig page is split into clear sections: now, the per-minute graph, and saved gigs.",
+  "url": "fw/PocketSPL-1.1.29.bin",
+  "size": 1756224,
+  "url_4mb": "fw/PocketSPL-1.1.29-4mb.bin",
+  "size_4mb": 1759184
 }
