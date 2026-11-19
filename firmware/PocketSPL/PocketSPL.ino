@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.35"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.36"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -5922,7 +5922,7 @@ void handleSet() {
       if (updateWaiting()) toast("Update", ("v" + latestFw + " available").c_str(), 3000);
     }
   }
-  if (server.hasArg("theme")) { theme = constrain(server.arg("theme").toInt(), 0, NUM_THEMES - 1); applyTheme(); savePrefs(); toast(THEME_NAME[theme], "Look", 1200); }
+  if (server.hasArg("theme")) { theme = constrain(server.arg("theme").toInt(), 0, NUM_THEMES - 1); applyTheme(); savePrefs(); }   // no pop-up on the meter: the new look speaks for itself
   if (server.hasArg("pincheck")) lastPinOk = lockPin.length() && server.arg("pin") == lockPin;
   wake(millis());
 
