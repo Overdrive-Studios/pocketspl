@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.33"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.34"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -10390,8 +10390,10 @@ void loop() {
   // ---- Screen saver ----
   {
     bool loud = (ssWake == 1 && snapFastDb() >= redFrom) || (ssWake >= 1 && limOn && limState == 2);
-    if (loud || calState != CAL_IDLE) lastActivity = now;   // wakes by itself while loud, then waits the full time again
-    bool idle = ssOn && now - lastActivity > (uint32_t)ssSecs * 1000UL;
+    uint32_t tNow = millis();                // fresh clock: a button press may have set lastActivity after "now" was read
+    if (loud || calState != CAL_IDLE) lastActivity = tNow;   // wakes by itself while loud, then waits the full time again
+    int32_t quiet = (int32_t)(tNow - lastActivity);          // signed, so a press a moment "ahead" counts as just now, not 49 days ago
+    bool idle = ssOn && quiet > (int32_t)ssSecs * 1000;
     if (idle && !dimmed) dimmed = true;
     else if (!idle && dimmed) dimmed = false;
     bool off = dimmed && ssMode == 0, dim = dimmed && ssMode == 1;
