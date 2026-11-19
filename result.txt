@@ -1,11 +1,11 @@
-run 44506390774 sha ce4e3512dd21cf6e1a2e466d744614f076ae5df1
+run 44507834772 sha 3c4f73f1f9259cf4691e051d02db62263ffe4d73
 build success
 deploy success
 {
-  "version": "1.1.37",
-  "notes": "Screen saver: switch on any or all of amber level, red level and over the limit to bring the screen back by itself. The button always wakes it.",
-  "url": "fw/PocketSPL-1.1.37.bin",
-  "size": 1764976,
-  "url_4mb": "fw/PocketSPL-1.1.37-4mb.bin",
-  "size_4mb": 1767936
+  "version": "1.1.38",
+  "notes": "Polish: on/off switches are easier to see in light mode, a tidier network status, a cleaner PIN box, alert options that fit on one line, and a proper empty space when there is no start-up logo.",
+  "url": "fw/PocketSPL-1.1.38.bin",
+  "size": 1765760,
+  "url_4mb": "fw/PocketSPL-1.1.38-4mb.bin",
+  "size_4mb": 1768720
 }
