@@ -1,11 +1,11 @@
-run 44497002994 sha 635dbf647860c2b83494bdbbad482e9f9010239c
+run 44497966960 sha 1ca0b211f01c7cd5750fae87663bd546d500aef3
 build success
 deploy success
 {
-  "version": "1.1.34",
-  "notes": "Fixes the screen flashing when you press the button.",
-  "url": "fw/PocketSPL-1.1.34.bin",
-  "size": 1764560,
-  "url_4mb": "fw/PocketSPL-1.1.34-4mb.bin",
-  "size_4mb": 1767536
+  "version": "1.1.35",
+  "notes": "The screen now wakes cleanly from the screen saver: no flash, and no old reading showing for a moment.",
+  "url": "fw/PocketSPL-1.1.35.bin",
+  "size": 1764672,
+  "url_4mb": "fw/PocketSPL-1.1.35-4mb.bin",
+  "size_4mb": 1767632
 }
