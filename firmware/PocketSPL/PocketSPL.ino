@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.38"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.39"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3865,10 +3865,15 @@ const char PAGE[] PROGMEM =
 "@media (orientation:portrait){.rtac{aspect-ratio:auto;width:100%;height:max(260px,calc(100dvh - 250px - env(safe-area-inset-bottom)))}}\n"
 ".rtahead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}\n"
 ".rtahead h2{margin:0}\n"
-".rollgrid{display:grid;grid-template-columns:52px repeat(3,1fr);align-items:baseline;margin:4px 0 14px;border-bottom:1px solid var(--rule)}\n"
-".rollgrid b{font-size:13px;color:var(--mute);font-weight:500;text-align:right;padding-bottom:4px}\n"
-".rollgrid span{font-size:14px;color:var(--mute);padding:6px 0;border-top:1px solid var(--rule)}\n"
-".rollgrid output{text-align:right;font:600 28px/1.2 var(--font-num),sans-serif;padding:4px 0;border-top:1px solid var(--rule)}\n"
+".rollgrid{display:grid;grid-template-columns:52px repeat(3,1fr);margin:4px 0 4px;border-bottom:1px solid var(--rule)}\n"
+".rollgrid>*{display:flex;align-items:center;justify-content:flex-end;min-height:46px;border-top:1px solid var(--rule)}\n"
+".rollgrid>b,.rollgrid>span:first-child{min-height:0;border-top:0;padding:0 0 6px;align-items:flex-end}\n"
+".rollgrid b{font-size:13px;color:var(--mute);font-weight:500}\n"
+".rollgrid>span{justify-content:flex-start;font-size:14px;color:var(--mute)}\n"
+".rollgrid output{font:600 28px/1.1 var(--font-num),sans-serif;font-variant-numeric:tabular-nums;transition:color .4s}\n"
+".rollgrid output.part{color:var(--mute)}\n"
+".rollnote{margin:6px 0 14px}\n"
+
 ".dose{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;align-items:center;margin:0 0 6px}\n"
 ".dose b{font:600 40px/1 var(--font-num),sans-serif;grid-row:span 2}\n"
 ".dose span{font-weight:600}.dose small{color:var(--mute);font-size:13px;line-height:1.35}\n"
@@ -4238,6 +4243,7 @@ const char PAGE[] PROGMEM =
 "      <span>LAeq</span><output id=\"ra0\">--</output><output id=\"ra1\">--</output><output id=\"ra2\">--</output>\n"
 "      <span>LCeq</span><output id=\"rc0\">--</output><output id=\"rc1\">--</output><output id=\"rc2\">--</output>\n"
 "    </div>\n"
+"    <p class=\"note rollnote\" id=\"rollNote\" hidden>Grey numbers are still filling up: so far they only cover the time since the gig started.</p>\n"
 "    <div class=\"dose\"><div><b id=\"dose\">--%</b> <span>Hearing dose</span></div><small>Share of the daily limit at this spot: 85 dB(A) over 8 hours, the Australian workplace standard.</small></div>\n"
 "  </div>\n"
 "\n"
@@ -4673,7 +4679,11 @@ const char PAGE[] PROGMEM =
 "    ban.hidden=false; ban.className=\"limbanner \"+(L.st===2?\"red\":\"amber\");\n"
 "    ban.textContent=(L.st===2?\"Over the limit: \":\"Near the limit: \")+(L.w===1?\"LCeq \":\"LAeq \")+WIN[L.win]+\" \"+L.val.toFixed(1)+\" dB (limit \"+L.db+\")\";\n"
 "  } else ban.hidden=true;\n"
-"  if(!held && st.roll){ for(let k=0;k<3;k++){ $(\"ra\"+k).textContent=f1(st.roll[k][0])+(st.roll[k][0]!==null&&!st.rollfull[k]?\"*\":\"\"); $(\"rc\"+k).textContent=f1(st.roll[k][1])+(st.roll[k][1]!==null&&!st.rollfull[k]?\"*\":\"\"); } }\n"
+"  if(!held && st.roll){ let part=false;\n"
+"    for(let k=0;k<3;k++){ const p=!st.rollfull[k];          // not a full window yet: shown grey, explained underneath\n"
+"      for(const [id,v] of [[\"ra\"+k,st.roll[k][0]],[\"rc\"+k,st.roll[k][1]]]){ const e=$(id); e.textContent=f1(v); e.classList.toggle(\"part\",p&&v!==null); if(p&&v!==null) part=true; } }\n"
+"    $(\"rollNote\").hidden=!part; }\n"
+
 "  if(!held && st.dose!==undefined){ const d=$(\"dose\"); d.textContent=st.dose.toFixed(st.dose<10?1:0)+\"%\"; d.style.color=st.dose>=100?\"var(--red)\":st.dose>=50?\"var(--amber)\":\"var(--ink)\"; }\n"
 "  if(st.log){ const sec=st.log.secs, h=Math.floor(sec/3600), m=Math.floor(sec/60)%60, s2=sec%60;\n"
 "    $(\"logInfo\").textContent = \"Logging for \"+(h? h+\" h \"+m+\" min\" : m? m+\" min \"+s2+\" s\" : s2+\" s\")+(st.log.marks?\", \"+st.log.marks+\" marker\"+(st.log.marks>1?\"s\":\"\"):\"\"); }\n"

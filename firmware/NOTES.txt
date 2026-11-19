@@ -1,1 +1,1 @@
-Polish: on/off switches are easier to see in light mode, a tidier network status, a cleaner PIN box, alert options that fit on one line, and a proper empty space when there is no start-up logo.
+Gig page: the rolling averages line up neatly, and ones still filling up show in grey (with a short note) instead of an asterisk.
