@@ -156,7 +156,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.30"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.31"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3305,6 +3305,10 @@ portMUX_TYPE audioLock = portMUX_INITIALIZER_UNLOCKED;
 float msqF[3] = {0}, msqS[3] = {0};
 const int FR_N = 32;                       // the phone graph's readings: Fast level, 20 a second (mean-square, current weighting)
 float frBuf[FR_N]; uint32_t frSeq = 0; int frCount = 0;
+const int H1_N = 3600;                     // the meter's own graph history: the last hour, highest and lowest level each second
+int16_t h1Hi[H1_N], h1Lo[H1_N];            // dB x10, 0 = no reading (warming up, mic fault)
+uint32_t h1Count = 0, h1Head = 0, h1At = 0;   // head = next slot, at = millis() of the newest second
+float h1Max = 0, h1Min = 0; int h1K = 0;
 double leqSum[3] = {0};
 uint64_t leqN = 0;
 float maxF[3] = {0};
@@ -3977,6 +3981,7 @@ const char PAGE[] PROGMEM =
 ".toast{transform:translateX(-50%) translateY(14px) scale(.94);transition:opacity .25s,transform .4s var(--spring)}\n"
 ".toast.show{transform:translateX(-50%) translateY(0) scale(1)}\n"
 "/* fold-away help */\n"
+".seg.spans{margin:10px 0 0}\n"
 "details.how{margin:10px 0 0;border-top:1px solid var(--rule);padding-top:10px}\n"
 "details.how summary{list-style:none;cursor:pointer;color:var(--accent,#0a84ff);font-size:15px;font-weight:500;display:flex;align-items:center;gap:6px;-webkit-tap-highlight-color:transparent}\n"
 "details.how summary::-webkit-details-marker{display:none}\n"
@@ -4250,8 +4255,10 @@ const char PAGE[] PROGMEM =
 "  <div class=\"card graphcard\" data-tab=\"meter\">\n"
 "    <h2 id=\"graphTitle\">Last 60 seconds</h2>\n"
 "    <canvas id=\"graph\" width=\"900\" height=\"300\"></canvas>\n"
+"    <div class=\"seg spans\" id=\"segSpan\"><button type=\"button\" data-v=\"60\">1 min</button><button type=\"button\" data-v=\"300\">5 min</button><button type=\"button\" data-v=\"900\">15 min</button><button type=\"button\" data-v=\"3600\">1 hour</button></div>\n"
 "    <details class=\"how\"><summary>Zoom and look back</summary>\n"
-"    <p class=\"note\">Pinch to zoom in on any spike or dip: sideways for time (3 seconds to 15 minutes), up and down for the level. Drag sideways to look back. Double-tap to go back to live.</p>\n"
+"    <p class=\"note\">Pinch to zoom in on any spike or dip: sideways for time (3 seconds to 1 hour), up and down for the level. Drag sideways to look back. Double-tap to go back to live.</p>\n"
+"    <p class=\"note\">The meter keeps the last hour itself, so if your phone wasn't connected, the graph fills in when you open this page again. It starts fresh when the meter is switched off.</p>\n"
 "    </details>\n"
 "  </div>\n"
 "\n"
@@ -4723,16 +4730,19 @@ const char PAGE[] PROGMEM =
 "/* level graph: 20 readings a second from the meter, follows the level automatically.\n"
 "   Pinch to zoom (where your fingers are), drag sideways to look back, double-tap to go back to live. */\n"
 "var gz={span:60, end:null, lo:null, hi:null, autoLo:40, autoHi:110, pinch:null, drag:null, tapAt:0, cols:false};\n"
-"function graphTitle(){ const s=Math.round(gz.span), t = s<120 ? s+\" seconds\" : Math.round(s/60)+\" minutes\";\n"
-"  $(\"graphTitle\").textContent = gz.end ? t+\" · looking back\" : \"Last \"+t; }\n"
+"function graphTitle(){ const s=Math.round(gz.span), hr=s>=3570, t = s<120 ? s+\" seconds\" : hr ? \"hour\" : Math.round(s/60)+\" minutes\";\n"
+"  $(\"graphTitle\").textContent = gz.end ? (hr?\"1 hour\":t)+\" · looking back\" : \"Last \"+t; if(window.spanSeg) spanSeg(); }\n"
 "function graphLive(){ gz.end=null; graphTitle(); }\n"
+"function spanSeg(){ document.querySelectorAll(\"#segSpan button\").forEach(b=>b.classList.toggle(\"on\",Math.abs(+b.dataset.v-gz.span)<1)); }\n"
+
 "function drawGraph(){\n"
 "  const c=$(\"graph\"), dpr=window.devicePixelRatio||1, w=c.clientWidth||300, h=c.clientHeight||100, now=Date.now();\n"
 "  const bw=Math.round(w*dpr), bh=Math.round(h*dpr); if(c.width!==bw||c.height!==bh){ c.width=bw; c.height=bh; }   // drawn at the real screen size: sharp and never squashed\n"
 "  const g=c.getContext(\"2d\"); g.setTransform(dpr,0,0,dpr,0,0);\n"
 "  g.clearRect(0,0,w,h);\n"
 "  const span=gz.span*1000, R=gz.end||now, L=R-span, pb=16;\n"
-"  const pts=[]; for(const p of hist) if(p.t>=L-1000 && p.t<=R) pts.push(p);\n"
+"  let a0=0, a1=hist.length; while(a0<a1){ const m=(a0+a1)>>1; if(hist[m].t<L-1000) a0=m+1; else a1=m; }   // jump straight to what is on screen\n"
+"  const pts=[]; for(let i=a0;i<hist.length && hist[i].t<=R;i++) pts.push(hist[i]);\n"
 "  if(!gz.end && pts.length && vis.fast!=null && st && !st.warm && !st.calst && !st.over && now-pts[pts.length-1].t<2000) pts.push({t:now, v:vis.fast});\n"
 "  // range: automatic (fits what's on screen, glides) unless pinched up/down\n"
 "  if(pts.length){ let mn=Infinity,mx=-Infinity; for(const p of pts){ if(p.t<L) continue; if(p.v<mn)mn=p.v; if(p.v>mx)mx=p.v; }\n"
@@ -4744,7 +4754,7 @@ const char PAGE[] PROGMEM =
 "  g.font=\"500 12px \"+cvFont(); g.lineWidth=1;\n"
 "  const step=(hi-lo)<=12?2:(hi-lo)<=30?5:(hi-lo)<=80?10:20;\n"
 "  for(let v=Math.ceil(lo/step)*step; v<=hi; v+=step){ if(y(v)<10) continue; g.strokeStyle=cv(\"--rule\"); g.beginPath(); g.moveTo(0,y(v)); g.lineTo(w,y(v)); g.stroke(); g.fillStyle=cv(\"--mute\"); g.fillText(v,3,y(v)-3); }\n"
-"  const ts=gz.span<=6?1:gz.span<=20?5:gz.span<=60?10:gz.span<=150?30:gz.span<=330?60:gz.span<=660?120:300;     // time marks, counted back from now\n"
+"  const ts=gz.span<=6?1:gz.span<=20?5:gz.span<=60?10:gz.span<=150?30:gz.span<=330?60:gz.span<=660?120:gz.span<=1800?300:600;     // time marks, counted back from now\n"
 "  g.fillStyle=cv(\"--faint\"); g.textAlign=\"center\";\n"
 "  for(let s=Math.ceil((now-R)/1000/ts)*ts; now-s*1000>=L; s+=ts){ if(s<=0) continue; const xx=x(now-s*1000); if(xx>w-4) continue;\n"
 "    g.strokeStyle=cv(\"--rule\"); g.globalAlpha=.5; g.beginPath(); g.moveTo(xx,0); g.lineTo(xx,gh); g.stroke(); g.globalAlpha=1;\n"
@@ -4799,15 +4809,16 @@ const char PAGE[] PROGMEM =
 "    if(gz.pinch && e.touches.length===2){ e.preventDefault(); const P=gz.pinch, [a,b]=e.touches;\n"
 "      if(P.vert){ const k=P.dy/d(a,b,\"clientY\"), half=Math.max(3,Math.min(60,(P.hi-P.lo)/2*k));   // fingers apart up/down: zoom the dB scale\n"
 "        gz.lo=Math.max(0,P.mid-half); gz.hi=Math.min(150,gz.lo+2*half); }\n"
-"      else { gz.span=Math.max(3,Math.min(900,P.span*P.dx/d(a,b,\"clientX\")));                    // apart sideways: zoom the time where your fingers are\n"
+"      else { gz.span=Math.max(3,Math.min(3600,P.span*P.dx/d(a,b,\"clientX\")));                    // apart sideways: zoom the time where your fingers are\n"
 "        gz.end=clampEnd(P.tAt+(1-P.mx)*gz.span*1000); graphTitle(); }\n"
 "      return; }\n"
 "    if(gz.drag && e.touches.length===1){ const dx=e.touches[0].clientX-gz.drag.x; if(Math.abs(dx)<4) return;   // drag sideways: look back in time\n"
 "      gz.end=clampEnd(gz.drag.end-dx/gz.drag.w*gz.span*1000); graphTitle(); }\n"
 "  },{passive:false});\n"
 "  c.addEventListener(\"touchend\",e=>{ if(e.touches.length<2) gz.pinch=null; if(!e.touches.length) gz.drag=null; });\n"
-"  c.addEventListener(\"wheel\",e=>{ if(!e.ctrlKey) return; e.preventDefault(); gz.span=Math.max(3,Math.min(900,gz.span*Math.exp(e.deltaY*0.01))); graphTitle(); },{passive:false});   // trackpad pinch on a computer\n"
+"  c.addEventListener(\"wheel\",e=>{ if(!e.ctrlKey) return; e.preventDefault(); gz.span=Math.max(3,Math.min(3600,gz.span*Math.exp(e.deltaY*0.01))); graphTitle(); },{passive:false});   // trackpad pinch on a computer\n"
 "  graphTitle();\n"
+"  document.querySelectorAll(\"#segSpan button\").forEach(b=>b.onclick=()=>{ gz.span=+b.dataset.v; gz.lo=gz.hi=null; gz.end=null; graphTitle(); });\n"
 "})();\n"
 "/* 20 readings a second: the meter sends what it measured since the last update */\n"
 "var frSeq=0;\n"
@@ -4838,14 +4849,32 @@ const char PAGE[] PROGMEM =
 "}\n"
 "requestAnimationFrame(frame);\n"
 "\n"
+"/* the meter keeps the last hour itself: fill in whatever the phone missed */\n"
+"let histLoadAt=0;\n"
+"async function loadMeterHist(){\n"
+"  if(Date.now()-histLoadAt<8000) return; histLoadAt=Date.now();\n"
+"  if(window.parent!==window && window.parent.PocketSim) return;\n"
+"  try{\n"
+"    const t0=performance.now(), r=await fetch(\"/api/hist\",{cache:\"no-store\"}); if(!r.ok) return;\n"
+"    const buf=await r.arrayBuffer(), lat=performance.now()-t0, d=new DataView(buf);\n"
+"    if(buf.byteLength<8) return; const n=d.getUint32(0,true), age=d.getUint32(4,true); if(!n||buf.byteLength<8+n*4) return;\n"
+"    const newest=Date.now()-age-lat/2, have=new Set(); for(const p of hist) have.add(Math.floor(p.t/1000));\n"
+"    const add=[];\n"
+"    for(let i=0;i<n;i++){ const hi=d.getInt16(8+i*2,true), lo=d.getInt16(8+n*2+i*2,true); if(hi<=0||lo<=0) continue;\n"
+"      const T=newest-(n-1-i)*1000; if(have.has(Math.floor((T-500)/1000))) continue;\n"
+"      add.push({t:T-750,v:lo/10},{t:T-250,v:hi/10}); }\n"
+"    if(add.length){ hist=add.concat(hist); hist.sort((a,b)=>a.t-b.t); if(add.length>40) toast(\"Graph filled in from the meter\"); }\n"
+"  }catch(e){}\n"
+"}\n"
 "async function call(path){\n"
+
 "  try{\n"
 "    const ctl=new AbortController(), t=setTimeout(()=>ctl.abort(),4000);\n"
 "    const r=await fetch(path,{cache:\"no-store\",signal:ctl.signal}); clearTimeout(t);\n"
 "    if(!r.ok) throw 0;\n"
-"    st=await r.json(); ok=true; lastOk=Date.now();\n"
+"    st=await r.json(); ok=true; if(Date.now()-lastOk>3000) setTimeout(loadMeterHist,300); lastOk=Date.now();   // just connected: fill the graph from the meter\n"
 "    addReadings();\n"
-"    const cut=Date.now()-901000; while(hist.length && hist[0].t<cut) hist.shift();   // 15 minutes for the zoomable graph (kept on the phone)\n"
+"    const cut=Date.now()-3601000; let k=0; while(k<hist.length && hist[k].t<cut) k++; if(k) hist.splice(0,k);   // an hour for the zoomable graph\n"
 "    return true;\n"
 "  }catch(e){ if(Date.now()-lastOk>6000) ok=false; return false; }\n"
 "}\n"
@@ -6396,6 +6425,24 @@ bool readLogHdr(uint32_t id, LogFileHdr& h, bool loadData) {
   return good;
 }
 
+// the last hour of the graph, for a phone that wasn't connected. Binary, little-endian:
+// count (u32), age of the newest second in ms (u32), then count highs and count lows (i16 dB x10, oldest first)
+void handleHist() {
+  uint32_t n, head, at;
+  portENTER_CRITICAL(&audioLock); n = h1Count; head = h1Head; at = h1At; portEXIT_CRITICAL(&audioLock);
+  uint32_t hdr[2] = { n, n ? millis() - at : 0 };
+  server.sendHeader("Cache-Control", "no-store");
+  server.setContentLength(8 + n * 4);
+  server.send(200, "application/octet-stream", "");
+  server.sendContent((const char*)hdr, 8);
+  uint32_t start = (head + H1_N - n) % H1_N, first = min(n, (uint32_t)H1_N - start);
+  for (int a = 0; a < 2; a++) {
+    int16_t* arr = a ? h1Lo : h1Hi;
+    if (first) server.sendContent((const char*)(arr + start), first * 2);
+    if (n > first) server.sendContent((const char*)arr, (n - first) * 2);
+  }
+}
+
 void handleLogs() {                        // list saved logs, or delete one (?del=N)
   if (server.hasArg("del")) {
     if (!pinOk()) { server.send(200, "application/json", "{\"denied\":true}"); return; }
@@ -6986,6 +7033,7 @@ void startServer() {
     server.on("/api/log.csv", handleLogCsv);
     server.on("/api/update", HTTP_POST, handleUpdateDone, handleUpdateUpload);
     server.on("/api/logs", handleLogs);
+    server.on("/api/hist", handleHist);
     server.on("/api/oldlog.csv", handleOldLogCsv);
     server.on("/api/logo", HTTP_POST, handleLogoDone, handleLogoUpload);
     server.on("/api/logo.bin", handleLogoFile);
@@ -7192,7 +7240,18 @@ void processAudio() {
   }
   leqN += n;
   frCount += n;
-  while (frCount >= FS / 20) { frCount -= FS / 20; frBuf[frSeq % FR_N] = msqF[wMode]; frSeq++; }
+  while (frCount >= FS / 20) {
+    frCount -= FS / 20; float m = msqF[wMode]; frBuf[frSeq % FR_N] = m; frSeq++;
+    if (h1K == 0 || m > h1Max) h1Max = m;
+    if (h1K == 0 || m < h1Min) h1Min = m;
+    if (++h1K >= 20) {                       // a second's worth: keep its highest and lowest for the phone to fetch later
+      bool good = warmup <= 0 && h1Min > 0;
+      h1Hi[h1Head] = good ? (int16_t)constrain(lroundf(toDb(h1Max) * 10), 1, 2000) : 0;
+      h1Lo[h1Head] = good ? (int16_t)constrain(lroundf(toDb(h1Min) * 10), 1, 2000) : 0;
+      h1Head = (h1Head + 1) % H1_N; if (h1Count < H1_N) h1Count++;
+      h1At = millis(); h1K = 0;
+    }
+  }
   if (calState == CAL_MEASURE) { calSum += blockRaw; calN += n; }
   gigBlock(blockSum, n, blockPeakC);
   portEXIT_CRITICAL(&audioLock);

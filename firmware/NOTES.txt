@@ -1,2 +1,2 @@
-Phone turned sideways: the dial now fits the screen.
-The saved gig report slides up like an iPhone sheet and slides away when you tap Done.
+The meter now keeps the last hour of the level graph itself. If your phone wasn't connected, open the page and the graph fills in, spikes and all.
+New 1 min / 5 min / 15 min / 1 hour buttons under the graph.
