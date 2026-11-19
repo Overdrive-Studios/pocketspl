@@ -1,11 +1,11 @@
-run 44499725783 sha 196dfa7308c97c44a36810cb7fc9eca8c68a2a64
+run 44506390774 sha ce4e3512dd21cf6e1a2e466d744614f076ae5df1
 build success
 deploy success
 {
-  "version": "1.1.36",
-  "notes": "Changing the look no longer shows a pop-up on the meter.",
-  "url": "fw/PocketSPL-1.1.36.bin",
-  "size": 1764640,
-  "url_4mb": "fw/PocketSPL-1.1.36-4mb.bin",
-  "size_4mb": 1767584
+  "version": "1.1.37",
+  "notes": "Screen saver: switch on any or all of amber level, red level and over the limit to bring the screen back by itself. The button always wakes it.",
+  "url": "fw/PocketSPL-1.1.37.bin",
+  "size": 1764976,
+  "url_4mb": "fw/PocketSPL-1.1.37-4mb.bin",
+  "size_4mb": 1767936
 }
