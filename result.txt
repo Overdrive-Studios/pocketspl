@@ -1,11 +1,11 @@
-run 44493755572 sha 7973649902646ac84c91b6bd1a11f855d2759440
+run 44496233118 sha a45386285385a4396ed6d0782eb9b48580ee5572
 build success
 deploy success
 {
-  "version": "1.1.32",
-  "notes": "Name your gigs: type a name at the top of the Gig page, and it stays with the gig when it's saved. Saved gigs can be renamed by tapping the title when you View them.",
-  "url": "fw/PocketSPL-1.1.32.bin",
-  "size": 1764464,
-  "url_4mb": "fw/PocketSPL-1.1.32-4mb.bin",
-  "size_4mb": 1767424
+  "version": "1.1.33",
+  "notes": "Updates while on the meter's own WiFi: phones now keep using mobile data for the internet while joined to the meter, so the phone page can download updates there. (Rejoin the meter's WiFi once after this update.)",
+  "url": "fw/PocketSPL-1.1.33.bin",
+  "size": 1764560,
+  "url_4mb": "fw/PocketSPL-1.1.33-4mb.bin",
+  "size_4mb": 1767536
 }
