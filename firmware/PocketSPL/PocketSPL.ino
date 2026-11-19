@@ -156,7 +156,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.31"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.32"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3981,6 +3981,10 @@ const char PAGE[] PROGMEM =
 ".toast{transform:translateX(-50%) translateY(14px) scale(.94);transition:opacity .25s,transform .4s var(--spring)}\n"
 ".toast.show{transform:translateX(-50%) translateY(0) scale(1)}\n"
 "/* fold-away help */\n"
+".gname{display:block;width:100%;box-sizing:border-box;border:0;outline:none;color:var(--ink);font-family:inherit;font-size:17px;font-weight:600;padding:10px 34px 10px 12px;margin:0 0 12px;border-radius:12px;background-color:var(--recess);background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z'/%3E%3C/svg%3E\")!important;background-repeat:no-repeat!important;background-position:right 12px center!important;background-size:16px!important;transition:box-shadow .2s}\n"
+".gname::placeholder{color:var(--mute);font-weight:500}\n"
+".gname:focus{box-shadow:0 0 0 2px var(--accent,#0a84ff)}\n"
+".gv .gname{font-size:20px;font-weight:700;margin:0;padding:6px 32px 6px 10px;flex:1;min-width:0}\n"
 ".seg.spans{margin:10px 0 0}\n"
 "details.how{margin:10px 0 0;border-top:1px solid var(--rule);padding-top:10px}\n"
 "details.how summary{list-style:none;cursor:pointer;color:var(--accent,#0a84ff);font-size:15px;font-weight:500;display:flex;align-items:center;gap:6px;-webkit-tap-highlight-color:transparent}\n"
@@ -4215,6 +4219,7 @@ const char PAGE[] PROGMEM =
 "\n"
 "  <div class=\"card\" data-tab=\"gig\" id=\"gigCard\">\n"
 "    <div class=\"rtahead\"><h2>Gig</h2><button class=\"btn small\" id=\"markBtn\" type=\"button\">Add marker</button></div>\n"
+"    <input class=\"gname\" id=\"gigName\" maxlength=\"40\" placeholder=\"Name this gig\" autocomplete=\"off\" enterkeyhint=\"done\" data-lock>\n"
 "    <div class=\"markform\" id=\"markForm\" hidden>\n"
 "      <input id=\"markText\" maxlength=\"24\" placeholder=\"e.g. Doors, Headliner on\" autocomplete=\"off\">\n"
 "      <button class=\"btn small primary\" id=\"markSave\" type=\"button\">Add</button>\n"
@@ -5258,8 +5263,9 @@ const char PAGE[] PROGMEM =
 "\n"
 "let logsKey=\"\";\n"
 "/* save a gig as a spreadsheet: fetch it first, so iPhone saves a real file with a proper name */\n"
-"function csvName(t0,id){ const d=t0?new Date(t0):new Date(); const p=n=>String(n).padStart(2,\"0\");\n"
-"  return \"PocketSPL gig \"+d.getFullYear()+\"-\"+p(d.getMonth()+1)+\"-\"+p(d.getDate())+\" \"+p(d.getHours())+\"\"+p(d.getMinutes())+(id?\" (\"+id+\")\":\"\")+\".csv\"; }\n"
+"function csvName(t0,id,nm){ const d=t0?new Date(t0):new Date(); const p=n=>String(n).padStart(2,\"0\");\n"
+"  const clean=(nm||\"\").replace(/[\\/:*?<>|\"]/g,\"\").trim();\n"
+"  return \"PocketSPL \"+(clean?clean+\" \":\"gig \")+d.getFullYear()+\"-\"+p(d.getMonth()+1)+\"-\"+p(d.getDate())+\" \"+p(d.getHours())+\"\"+p(d.getMinutes())+(id?\" (\"+id+\")\":\"\")+\".csv\"; }\n"
 "async function saveCsv(url,name,btn){\n"
 "  if(btn.dataset.busy) return; const old=btn.textContent; btn.dataset.busy=1; btn.textContent=\"Preparing…\";\n"
 "  try{ const r=await fetch(url,{cache:\"no-store\"}); if(!r.ok) throw new Error(await r.text());\n"
@@ -5270,10 +5276,23 @@ const char PAGE[] PROGMEM =
 "  }catch(e){ toast(\"Couldn't download it. Check the phone is still connected to the meter\"); }\n"
 "  btn.textContent=old; delete btn.dataset.busy;\n"
 "}\n"
+"/* gig names */\n"
+"async function nameGig(id,nm){\n"
+"  if(window.parent!==window && window.parent.PocketSim){ toast(\"Simulator: names save on the real meter\"); return false; }\n"
+"  try{ const r=await fetch(\"/api/logname?id=\"+id+\"&name=\"+encodeURIComponent(nm)+pinQ(),{cache:\"no-store\"}); const k=await r.json();\n"
+"    if(k.denied){ toast(\"Locked: enter the PIN in Settings → General → Lock\"); return false; }\n"
+"    if(!k.ok){ toast(\"Couldn't save the name\"); return false; }\n"
+"  }catch(e){ toast(\"Couldn't save the name. Check the phone is still connected\"); return false; }\n"
+"  toast(nm?\"Named \"+nm:\"Name cleared\"); logsKey=\"\"; loadSavedLogs(); return true;\n"
+"}\n"
+"$(\"gigName\").onkeydown=e=>{ if(e.key===\"Enter\") $(\"gigName\").blur(); };\n"
+"$(\"gigName\").onchange=()=>nameGig(0,$(\"gigName\").value.trim());\n"
 "async function loadSavedLogs(){\n"
+
 "  let j=null;\n"
 "  if(window.parent!==window && window.parent.PocketSim) j=window.parent.PocketSim.logs();\n"
 "  else { try{ const r=await fetch(\"/api/logs\",{cache:\"no-store\"}); j=await r.json(); }catch(e){ return; } }\n"
+"  if(j && document.activeElement!==$(\"gigName\")) $(\"gigName\").value=j.cur||\"\";\n"
 "  const key=JSON.stringify(j); if(key===logsKey) return; logsKey=key;\n"
 "  const L=$(\"savedLogs\"); L.innerHTML=\"\";\n"
 "  if(!j.fs){ L.innerHTML='<p class=\"note\">The software on this meter was loaded without room for saved gigs. Reload it by USB from the help page to fix it.</p>'; return; }\n"
@@ -5281,13 +5300,14 @@ const char PAGE[] PROGMEM =
 "  j.logs.forEach(g=>{\n"
 "    const row=document.createElement(\"div\"); row.className=\"logrow\";\n"
 "    const meta=document.createElement(\"div\"); const b=document.createElement(\"span\");\n"
-"    b.textContent = g.t0 ? new Date(g.t0).toLocaleString([], {weekday:\"short\", day:\"numeric\", month:\"short\", hour:\"numeric\", minute:\"2-digit\"}) : \"Gig \"+g.id;\n"
+"    const when = g.t0 ? new Date(g.t0).toLocaleString([], {weekday:\"short\", day:\"numeric\", month:\"short\", hour:\"numeric\", minute:\"2-digit\"}) : \"Gig \"+g.id;\n"
+"    b.textContent = g.name || when;\n"
 "    const sm=document.createElement(\"small\"); const h=Math.floor(g.mins/60), m=g.mins%60;\n"
-"    sm.textContent=(h?h+\" h \":\"\")+m+\" min\"+(g.marks?\", \"+g.marks+\" marker\"+(g.marks>1?\"s\":\"\"):\"\");\n"
+"    sm.textContent=(g.name?when+\" · \":\"\")+(h?h+\" h \":\"\")+m+\" min\"+(g.marks?\", \"+g.marks+\" marker\"+(g.marks>1?\"s\":\"\"):\"\");\n"
 "    meta.append(b,sm);\n"
 "    const acts=document.createElement(\"div\"); acts.className=\"acts\";\n"
 "    const dl=document.createElement(\"a\"); dl.className=\"btn small\"; dl.textContent=\"View\"; dl.href=\"/api/oldlog.csv?id=\"+g.id; dl.download=\"PocketSPL-log-\"+g.id+\".csv\";\n"
-"    dl.onclick=e=>{ e.preventDefault(); const P=window.parent!==window&&window.parent.PocketSim; if(P){ toast(\"Simulator: downloads on the real meter\"); return; } gigView(dl.href, csvName(g.t0,g.id), b.textContent, dl); };\n"
+"    dl.onclick=e=>{ e.preventDefault(); const P=window.parent!==window&&window.parent.PocketSim; if(P){ toast(\"Simulator: downloads on the real meter\"); return; } gigView(dl.href, csvName(g.t0,g.id,g.name), b.textContent, dl, {id:g.id, when, name:g.name||\"\"}); };\n"
 "    const del=document.createElement(\"button\"); del.className=\"btn small\"; del.textContent=\"Delete\"; del.setAttribute(\"data-lock\",\"\");\n"
 "    del.onclick=async()=>{ if(!confirm(\"Delete this saved gig?\")) return;\n"
 "      if(window.parent!==window && window.parent.PocketSim){ window.parent.PocketSim.delLog(g.id); }\n"
@@ -5356,7 +5376,7 @@ const char PAGE[] PROGMEM =
 "    if(n){ g.fillText(hm(mins[0].t)||\"0 min\",pl,H-4); const e=hm(mins[n-1].t)||(n+\" min\"); g.fillText(e,W-pr-g.measureText(e).width,H-4); }\n"
 "  }\n"
 "\n"
-"  window.gigView=async function(url,name,title,btn){\n"
+"  window.gigView=async function(url,name,title,btn,opts){\n"
 "    let txt;\n"
 "    const old=btn&&btn.textContent; if(btn){ btn.textContent=\"Opening…\"; }\n"
 "    try{ const r=await fetch(url,{cache:\"no-store\"}); if(!r.ok) throw 0; txt=await r.text(); }\n"
@@ -5395,7 +5415,14 @@ const char PAGE[] PROGMEM =
 "      <button class=\"btn wide\" type=\"button\" data-x style=\"margin-top:12px\">Done</button>\n"
 "    </div>`;\n"
 "    v.querySelector(\"h2\").textContent=title;\n"
-"    v.querySelector(\".sub\").textContent=mins.length?(h?h+\" h \":\"\")+mm+\" min logged\"+(marks.length?\", \"+marks.length+\" marker\"+(marks.length>1?\"s\":\"\"):\"\"):\"No full minutes logged yet\";\n"
+"    if(opts){                                  // tap the title to name the gig\n"
+"      const inp=document.createElement(\"input\"); inp.className=\"gname\"; inp.maxLength=40; inp.placeholder=opts.when; inp.value=opts.name; inp.setAttribute(\"enterkeyhint\",\"done\");\n"
+"      inp.onkeydown=e=>{ if(e.key===\"Enter\") inp.blur(); };\n"
+"      inp.onchange=async()=>{ if(await nameGig(opts.id, inp.value.trim())) name=csvName(0,opts.id,inp.value.trim()); };\n"
+"      v.querySelector(\"h2\").replaceWith(inp);\n"
+"    }\n"
+
+"    v.querySelector(\".sub\").textContent=(opts&&opts.name?opts.when+\" · \":\"\")+(mins.length?(h?h+\" h \":\"\")+mm+\" min logged\"+(marks.length?\", \"+marks.length+\" marker\"+(marks.length>1?\"s\":\"\"):\"\"):\"No full minutes logged yet\");\n"
 "    if(marks.length){ const M=v.querySelector(\"[data-marks]\"); M.className=\"marks\"; M.innerHTML=\"<h3>Markers</h3>\";\n"
 "      marks.forEach(k=>{ const d=document.createElement(\"div\"); const s=document.createElement(\"span\"); s.textContent=hm(k.t)||(k.e+\" min\"); const x=document.createElement(\"b\"); x.textContent=k.x; d.append(s,x); M.append(d); }); }\n"
 "    const tb=v.querySelector(\"tbody\");\n"
@@ -6362,6 +6389,50 @@ void saveCurrentLog(bool force) {
   LittleFS.rename("/cur.tmp", "/cur.bin");
 }
 
+// Gig names: a small file next to each log ("/log12.nm"), and "/cur.nm" for the gig running now
+String logNamePath(uint32_t id) {
+  char p[24];
+  if (id) snprintf(p, sizeof(p), "/log%lu.nm", (unsigned long)id); else strcpy(p, "/cur.nm");
+  return String(p);
+}
+String readLogName(uint32_t id) {
+  if (!fsOk) return "";
+  File f = LittleFS.open(logNamePath(id), FILE_READ);
+  if (!f) return "";
+  String s = f.readString(); f.close(); s.trim();
+  return s;
+}
+void removeLog(uint32_t id) {
+  char p[24]; snprintf(p, sizeof(p), "/log%lu.bin", (unsigned long)id);
+  LittleFS.remove(p); LittleFS.remove(logNamePath(id));
+}
+void jstr(String& s, const String& v) {     // add a JSON string (names are cleaned when saved, so no escaping needed)
+  s += '"'; s += v; s += '"';
+}
+void handleLogName() {                      // name a gig: ?id=N&name=... (id 0 = the gig running now; empty name clears it)
+  if (!pinOk()) { server.send(200, "application/json", "{\"denied\":true}"); return; }
+  if (!fsOk) { server.send(200, "application/json", "{\"ok\":false}"); return; }
+  uint32_t id = server.arg("id").toInt();
+  String in = server.arg("name"), c;
+  for (size_t i = 0; i < in.length() && c.length() < 60; i++) {
+    char ch = in[i];
+    if ((uint8_t)ch < 32 || ch == '"' || ch == '\\') continue;
+    c += ch;
+  }
+  if (c.length() >= 60) {                   // cut short: don't leave half a character
+    while (c.length() && ((uint8_t)c[c.length() - 1] & 0xC0) == 0x80) c.remove(c.length() - 1);
+    if (c.length() && ((uint8_t)c[c.length() - 1] & 0xC0) == 0xC0) c.remove(c.length() - 1);
+  }
+  c.trim();
+  if (id) {
+    char p[24]; snprintf(p, sizeof(p), "/log%lu.bin", (unsigned long)id);
+    if (!LittleFS.exists(p)) { server.send(200, "application/json", "{\"ok\":false}"); return; }
+  }
+  if (!c.length()) LittleFS.remove(logNamePath(id));
+  else { File f = LittleFS.open(logNamePath(id), FILE_WRITE); if (f) { f.print(c); f.close(); } }
+  server.send(200, "application/json", "{\"ok\":true}");
+}
+
 int listLogs(uint32_t* ids, int maxN) {     // saved log numbers, newest first
   int n = 0;
   File dir = LittleFS.open("/");
@@ -6379,7 +6450,7 @@ int listLogs(uint32_t* ids, int maxN) {     // saved log numbers, newest first
 void makeRoom(size_t need) {                // delete the oldest saved gigs until there's enough free space
   uint32_t ids[40]; int n = listLogs(ids, 40);
   while (n > 0 && LittleFS.totalBytes() - LittleFS.usedBytes() < need) {
-    char p[24]; snprintf(p, sizeof(p), "/log%lu.bin", (unsigned long)ids[--n]); LittleFS.remove(p);
+    removeLog(ids[--n]);
   }
 }
 
@@ -6408,8 +6479,10 @@ void archiveCurrentLog() {                 // the running log becomes a saved lo
   uint32_t seq = prefs.getUInt("lseq", 0) + 1; prefs.putUInt("lseq", seq);
   char p[24]; snprintf(p, sizeof(p), "/log%lu.bin", (unsigned long)seq);
   LittleFS.rename("/cur.bin", p);
+  LittleFS.remove(logNamePath(seq));        // an old name left from before a factory reset
+  if (LittleFS.exists("/cur.nm")) LittleFS.rename("/cur.nm", logNamePath(seq));   // the gig keeps its name
   uint32_t ids[40]; int n = listLogs(ids, 40);
-  for (int i = SAVED_LOGS; i < n; i++) { snprintf(p, sizeof(p), "/log%lu.bin", (unsigned long)ids[i]); LittleFS.remove(p); }
+  for (int i = SAVED_LOGS; i < n; i++) removeLog(ids[i]);
   savedTotal = 0xFFFFFFFF; savedMarks = -1; savedT0 = -1;
 }
 
@@ -6446,19 +6519,20 @@ void handleHist() {
 void handleLogs() {                        // list saved logs, or delete one (?del=N)
   if (server.hasArg("del")) {
     if (!pinOk()) { server.send(200, "application/json", "{\"denied\":true}"); return; }
-    char p[24]; snprintf(p, sizeof(p), "/log%lu.bin", (unsigned long)server.arg("del").toInt());
-    if (fsOk) LittleFS.remove(p);
+    if (fsOk) removeLog(server.arg("del").toInt());
   }
-  String s = "{\"fs\":"; s += fsOk ? "true" : "false"; s += ",\"logs\":[";
+  String s = "{\"fs\":"; s += fsOk ? "true" : "false";
+  s += ",\"cur\":"; jstr(s, readLogName(0));
+  s += ",\"logs\":[";
   uint32_t ids[40]; int n = fsOk ? listLogs(ids, 40) : 0;
   bool firstOut = true;
   for (int i = 0; i < n; i++) {
     LogFileHdr h;
     if (!readLogHdr(ids[i], h, false)) continue;
     char b[120];
-    snprintf(b, sizeof(b), "%s{\"id\":%lu,\"mins\":%lu,\"secs\":%lu,\"t0\":%lld,\"marks\":%u}", firstOut ? "" : ",",
+    snprintf(b, sizeof(b), "%s{\"id\":%lu,\"mins\":%lu,\"secs\":%lu,\"t0\":%lld,\"marks\":%u,\"name\":", firstOut ? "" : ",",
              (unsigned long)ids[i], (unsigned long)(h.first + h.kept), (unsigned long)h.logSecs, (long long)h.t0, (unsigned)h.nmk);
-    s += b; firstOut = false;
+    s += b; jstr(s, readLogName(ids[i])); s += "}"; firstOut = false;
   }
   s += "]}";
   server.sendHeader("Cache-Control", "no-store");
@@ -7035,6 +7109,7 @@ void startServer() {
     server.on("/api/logs", handleLogs);
     server.on("/api/hist", handleHist);
     server.on("/api/oldlog.csv", handleOldLogCsv);
+    server.on("/api/logname", handleLogName);
     server.on("/api/logo", HTTP_POST, handleLogoDone, handleLogoUpload);
     server.on("/api/logo.bin", handleLogoFile);
     server.on("/apple-touch-icon.png", handleTouchIcon);

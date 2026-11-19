@@ -1,2 +1,1 @@
-The meter now keeps the last hour of the level graph itself. If your phone wasn't connected, open the page and the graph fills in, spikes and all.
-New 1 min / 5 min / 15 min / 1 hour buttons under the graph.
+Name your gigs: type a name at the top of the Gig page, and it stays with the gig when it's saved. Saved gigs can be renamed by tapping the title when you View them.
