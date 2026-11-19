@@ -1,11 +1,11 @@
-run 44496233118 sha a45386285385a4396ed6d0782eb9b48580ee5572
+run 44497002994 sha 635dbf647860c2b83494bdbbad482e9f9010239c
 build success
 deploy success
 {
-  "version": "1.1.33",
-  "notes": "Updates while on the meter's own WiFi: phones now keep using mobile data for the internet while joined to the meter, so the phone page can download updates there. (Rejoin the meter's WiFi once after this update.)",
-  "url": "fw/PocketSPL-1.1.33.bin",
+  "version": "1.1.34",
+  "notes": "Fixes the screen flashing when you press the button.",
+  "url": "fw/PocketSPL-1.1.34.bin",
   "size": 1764560,
-  "url_4mb": "fw/PocketSPL-1.1.33-4mb.bin",
+  "url_4mb": "fw/PocketSPL-1.1.34-4mb.bin",
   "size_4mb": 1767536
 }
