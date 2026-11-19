@@ -1,11 +1,11 @@
-run 44455242954 sha c79f7640c0a1b2f0281d26d9e3394017aca13bd3
+run 44456119949 sha 702c4f283dba0354841601188dd5d4b78fc97fc7
 build success
 deploy success
 {
-  "version": "1.1.25",
-  "notes": "New screen saver (phone: Settings > General > Screen saver). Turn it on or off, choose when it kicks in, whether the screen goes off or dims, and whether a loud level brings it back.\nAny button press now always brings the screen back. That press does nothing else.",
-  "url": "fw/PocketSPL-1.1.25.bin",
-  "size": 1741904,
-  "url_4mb": "fw/PocketSPL-1.1.25-4mb.bin",
-  "size_4mb": 1744848
+  "version": "1.1.26",
+  "notes": "Settings > General is now a tidy list: tap Screen, Limit alarm, Alerts, Calibration and the rest to open each one.\nScreen saver settings are under General > Screen.",
+  "url": "fw/PocketSPL-1.1.26.bin",
+  "size": 1749296,
+  "url_4mb": "fw/PocketSPL-1.1.26-4mb.bin",
+  "size_4mb": 1752256
 }
