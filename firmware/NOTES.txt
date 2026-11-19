@@ -1,1 +1,1 @@
-Smoother phone app: pages slide in and out like an iPhone, buttons give when pressed, and on/off settings are now iPhone-style switches.
+Cleaner phone app: the big number sits neatly inside the dial, the RTA fills the screen with bars that turn amber then red as they climb, and long help text folds away under "How it works" links.
