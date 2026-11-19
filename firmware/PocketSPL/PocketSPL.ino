@@ -48,7 +48,8 @@
       Download it from the phone as a spreadsheet (CSV). The log lives in memory: download it
       before you switch the meter off.
     - Hearing dose: % of the Australian workplace daily limit (85 dB(A) over 8 hours).
-    - Screen dims after a while with no button press (first press just wakes it).
+    - Screen saver: turns the screen off (or dims it) after a while with no button press. Any press
+      brings it back (that press does nothing else). Phone: Settings > General > Screen saver.
     - GIG screen on the meter (hold 1 s to step to it).
 
   SCREEN LOOK
@@ -73,7 +74,7 @@
                - hides the battery icon and never switches itself off for a flat battery
                - switches the screen OFF after 10 minutes without a press (an OLED left on the same
                  picture for weeks burns in). Any press wakes it. It also wakes by itself while the
-                 level is over the limit alarm. Screen dimming set to Never keeps it on.
+                 level is over the limit alarm. Screen saver switched off keeps it on.
                - saves the running log every 5 minutes (not every minute), so the flash lasts for years
                - when a night is over (at least an hour of 70 dB(A)+, then 2 hours under 60 dB(A)),
                  saves that night as its own log and starts a fresh one. Up to 30 are kept (8MB board).
@@ -155,7 +156,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.24"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.25"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3266,7 +3267,11 @@ int  limDb = 100;            // limit, dB (WHO safe listening venues: 100 dB LAe
 int  limWin = 2;             // 0 = 1 min, 1 = 5 min, 2 = 15 min
 int  limW = W_A;             // weighting the limit is measured in (A or C)
 const int LIM_WARN_DB = 3;   // amber this many dB below the limit
-int  dimSecs = 60;           // dim the screen after this many seconds without a press (0 = never)
+// screen saver (phone: Settings > General > Screen saver)
+bool ssOn = true;            // screen saver on
+int  ssSecs = 60;            // kicks in after this many seconds without a press
+int  ssMode = 0;             // 0 = turn the screen off, 1 = dim it
+int  ssWake = 0;             // also wake by itself: 0 = button only, 1 = when the level reaches red, 2 = over the limit alarm
 
 uint16_t levelColour(float db) {
   if (db >= redFrom) return C_RED;
@@ -3440,14 +3445,26 @@ uint32_t lastTapAt = 0;
 
 // 0 nothing, 1 tap, 2 released after 1-3 s, 3 reached 3 s (fires once while held)
 // ---- screen dimming ----
-bool dimmed = false;
-bool screenOff = false;                    // wired model: screen switched off to stop burn-in
-uint32_t lastActivity = 0;
+bool dimmed = false;                       // screen saver active (screen off or dimmed)
+bool screenOff = false;                    // what the display is actually doing now
+bool screenDim = false;
+uint32_t lastActivity = 0, ssAssertAt = 0;
+extern bool lastFrameOk;
+// puts the display in the state wanted; sends the commands again every few seconds so a missed one can't stick
+void applyScreen(bool off, bool dim, uint32_t now, bool force) {
+  bool resend = force || now - ssAssertAt > 3000;
+  if (off != screenOff || resend) {
+    oled.sendCommand(off ? 0xAE : 0xAF);   // display off (sleep) / on
+    if (!off && screenOff) lastFrameOk = false;   // coming back: send the whole picture again
+    screenOff = off;
+  }
+  if (dim != screenDim || resend) { setBrightness(dim ? 1 : brightness); screenDim = dim; }
+  if (resend) ssAssertAt = now;
+}
 void wake(uint32_t now) {
   lastActivity = now;
   if (standby) standbyShowUntil = now + 8000;     // standby: show when it comes on next
-  if (screenOff) { screenOff = false; oled.sendCommand(0xAF); }   // display on
-  if (dimmed) { dimmed = false; setBrightness(brightness); }
+  if (dimmed || screenOff || screenDim) { dimmed = false; applyScreen(false, false, now, true); }
 }
 
 int pollButton(Button& b) {
@@ -3542,7 +3559,7 @@ void savePrefs() {
   prefs.putUChar("amb", amberFrom); prefs.putUChar("red", redFrom);
   prefs.putUChar("bri", brightness); prefs.putBool("wifi", wifiOn);
   prefs.putBool("limOn", limOn); prefs.putUChar("limDb", limDb); prefs.putUChar("limWin", limWin); prefs.putUChar("limW", limW);
-  prefs.putUShort("dim", dimSecs);
+  prefs.putBool("ssOn", ssOn); prefs.putUShort("ssSecs", ssSecs); prefs.putUChar("ssMode", ssMode); prefs.putUChar("ssWake", ssWake);
   prefs.putUChar("theme", theme);
 }
 
@@ -4195,8 +4212,16 @@ const char PAGE[] PROGMEM =
 "    <div class=\"row\"><button class=\"btn wide\" id=\"whoStd\" type=\"button\">Use venue standard: 100 dB(A) over 15 min</button></div>\n"
 "    <p class=\"note\">The WHO standard for venues is 100 dB LAeq over 15 minutes. The meter turns amber within 3 dB of the limit and red over it.</p>\n"
 "    <h3>Screen</h3>\n"
-"    <div class=\"seg\" id=\"segDim\"><button data-v=\"0\">Never dim</button><button data-v=\"30\">30 s</button><button data-v=\"60\">1 min</button><button data-v=\"300\">5 min</button></div>\n"
-"    <p class=\"note\">Dims the meter's screen when the button isn't used. The first press wakes it.</p>\n"
+"    <label class=\"check\"><input type=\"checkbox\" id=\"ssOn\"> Screen saver</label>\n"
+"    <div id=\"ssOpts\">\n"
+"    <p class=\"note\" style=\"margin-top:10px\">Kicks in after</p>\n"
+"    <div class=\"seg\" id=\"segSsSecs\"><button data-v=\"30\">30 s</button><button data-v=\"60\">1 min</button><button data-v=\"300\">5 min</button><button data-v=\"600\">10 min</button><button data-v=\"1800\">30 min</button></div>\n"
+"    <p class=\"note\" style=\"margin-top:10px\">What it does</p>\n"
+"    <div class=\"seg\" id=\"segSsMode\"><button data-v=\"0\">Screen off</button><button data-v=\"1\">Dim</button></div>\n"
+"    <p class=\"note\" style=\"margin-top:10px\">Comes back on</p>\n"
+"    <div class=\"seg\" id=\"segSsWake\"><button data-v=\"0\">Button only</button><button data-v=\"1\">Button or red level</button><button data-v=\"2\">Button or over limit</button></div>\n"
+"    </div>\n"
+"    <p class=\"note\">Any press brings the screen back. That press does nothing else, so you can't change a setting by accident.</p>\n"
 "    <div class=\"row\"><label>Brightness</label><input type=\"range\" id=\"bright\" min=\"1\" max=\"15\" step=\"1\"></div>\n"
 "    <div class=\"row\"><label>Amber from</label><div class=\"step\"><button data-k=\"amber\" data-d=\"-1\">−</button><output id=\"amber\">--</output><button data-k=\"amber\" data-d=\"1\">+</button></div></div>\n"
 "    <div class=\"row\"><label>Red from</label><div class=\"step\"><button data-k=\"red\" data-d=\"-1\">−</button><output id=\"red\">--</output><button data-k=\"red\" data-d=\"1\">+</button></div></div>\n"
@@ -4504,7 +4529,8 @@ const char PAGE[] PROGMEM =
 "    document.querySelectorAll(\"#segLimWin button\").forEach(b=>b.classList.toggle(\"on\",+b.dataset.v===L.win));\n"
 "    document.querySelectorAll(\"#segLimW button\").forEach(b=>b.classList.toggle(\"on\",(+b.dataset.v===1)===(L.w===1)));\n"
 "    const who=L.on&&L.db===100&&L.win===2&&L.w!==1; $(\"whoStd\").textContent=who?\"✓ Venue standard, 100 dB(A) over 15 min\":\"Use the venue standard (100 dB(A), 15 min)\"; $(\"whoStd\").classList.toggle(\"on\",who); }\n"
-"  if(st.dim!==undefined) document.querySelectorAll(\"#segDim button\").forEach(b=>b.classList.toggle(\"on\",+b.dataset.v===st.dim));\n"
+"  if(st.ss){ if(document.activeElement!==$(\"ssOn\")) $(\"ssOn\").checked=st.ss.on; $(\"ssOpts\").hidden=!st.ss.on;\n"
+"    [[\"segSsSecs\",st.ss.secs],[\"segSsMode\",st.ss.mode],[\"segSsWake\",st.ss.wake]].forEach(([id,v])=>document.querySelectorAll(\"#\"+id+\" button\").forEach(b=>b.classList.toggle(\"on\",+b.dataset.v===v))); }\n"
 "}\n"
 "let gigLog=null;\n"
 "async function loadLog(){\n"
@@ -4559,7 +4585,10 @@ const char PAGE[] PROGMEM =
 "document.querySelectorAll(\"#segLimWin button\").forEach(b=>b.onclick=()=>set(\"limWin=\"+b.dataset.v,\"Limit over \"+WIN[+b.dataset.v]));\n"
 "$(\"whoStd\").onclick=()=>set(\"limOn=1&limDb=100&limWin=2&limW=0\",\"Limit: 100 dB(A) over 15 min\");\n"
 "document.querySelectorAll(\"#segLimW button\").forEach(b=>b.onclick=()=>set(\"limW=\"+b.dataset.v,b.dataset.v===\"1\"?\"Limit in dB C\":\"Limit in dB A\"));\n"
-"document.querySelectorAll(\"#segDim button\").forEach(b=>b.onclick=()=>set(\"dim=\"+b.dataset.v,b.dataset.v===\"0\"?\"Screen won't dim\":\"Dims after \"+b.textContent));\n"
+"$(\"ssOn\").onchange=()=>set(\"ss=\"+($(\"ssOn\").checked?1:0),$(\"ssOn\").checked?\"Screen saver on\":\"Screen stays on\");\n"
+"document.querySelectorAll(\"#segSsSecs button\").forEach(b=>b.onclick=()=>set(\"sssecs=\"+b.dataset.v,\"After \"+b.textContent));\n"
+"document.querySelectorAll(\"#segSsMode button\").forEach(b=>b.onclick=()=>set(\"ssmode=\"+b.dataset.v,b.dataset.v===\"1\"?\"Dims the screen\":\"Turns the screen off\"));\n"
+"document.querySelectorAll(\"#segSsWake button\").forEach(b=>b.onclick=()=>set(\"sswake=\"+b.dataset.v,b.textContent));\n"
 "\n"
 "$(\"freeze\").onclick=()=>{ frozen=!frozen; $(\"freeze\").textContent=frozen?\"Frozen\":\"Freeze\"; $(\"freeze\").classList.toggle(\"on\",frozen); render(); };\n"
 "\n"
@@ -5565,7 +5594,7 @@ void sendState() {
     snprintf(g, sizeof(g), "\"lim\":{\"on\":%s,\"db\":%d,\"win\":%d,\"w\":%d,", limOn ? "true" : "false", limDb, limWin, limW); s += g;
     snprintf(g, sizeof(g), "\"st\":%d,\"val\":", limState); s += g;
     if (limReady) { snprintf(g, sizeof(g), "%.1f},", limVal); s += g; } else s += "null},";
-    snprintf(g, sizeof(g), "\"dose\":%.1f,\"dim\":%d,\"dimmed\":%s,", warm ? 0.0f : dosePct(), dimSecs, dimmed ? "true" : "false"); s += g;
+    snprintf(g, sizeof(g), "\"dose\":%.1f,\"ss\":{\"on\":%s,\"secs\":%d,\"mode\":%d,\"wake\":%d},\"dimmed\":%s,", warm ? 0.0f : dosePct(), ssOn ? "true" : "false", ssSecs, ssMode, ssWake, dimmed ? "true" : "false"); s += g;
     snprintf(g, sizeof(g), "\"log\":{\"mins\":%lu,\"secs\":%lu,\"marks\":%d,\"t0\":%lld},",
              (unsigned long)snap.logTotal, (unsigned long)snap.logSecs, markCount, (long long)logStartEpochMs); s += g;
   }
@@ -5595,7 +5624,7 @@ void sendState() {
 
 // Settings lock: these need the PIN when the meter is locked. Weighting, response, Reset MAX + Leq and markers don't.
 const char* const PROTECTED_ARGS[] = {"bright", "amber", "red", "cal", "cal94", "fcalback", "wifi", "limOn", "limDb", "limWin", "limW",
-                                      "dim", "apname", "apdefault", "newlog", "lockset", "lockoff", "factory", "sch", "schon", "alon", "altopic", "alhold", "alrep", "alback", "altest", "alnew"};
+                                      "ss", "sssecs", "ssmode", "sswake", "apname", "apdefault", "newlog", "lockset", "lockoff", "factory", "sch", "schon", "alon", "altopic", "alhold", "alrep", "alback", "altest", "alnew"};
 int verCmp(const String& a, const String& b) {   // compares "1.0.10" with "1.0.9" the right way
   int pa[3] = {0, 0, 0}, pb[3] = {0, 0, 0};
   sscanf(a.c_str(), "%d.%d.%d", &pa[0], &pa[1], &pa[2]); sscanf(b.c_str(), "%d.%d.%d", &pb[0], &pb[1], &pb[2]);
@@ -5675,7 +5704,10 @@ void handleSet() {
   if (server.hasArg("limDb"))  { limDb = constrain(server.arg("limDb").toInt(), 60, 125); limState = 0; savePrefs(); }
   if (server.hasArg("limWin")) { limWin = constrain(server.arg("limWin").toInt(), 0, 2); limState = 0; savePrefs(); }
   if (server.hasArg("limW"))   { limW = server.arg("limW").toInt() == W_C ? W_C : W_A; limState = 0; savePrefs(); }
-  if (server.hasArg("dim"))    { dimSecs = constrain(server.arg("dim").toInt(), 0, 3600); savePrefs(); }
+  if (server.hasArg("ss"))     { ssOn = server.arg("ss").toInt() != 0; savePrefs(); }
+  if (server.hasArg("sssecs")) { ssSecs = constrain(server.arg("sssecs").toInt(), 10, 3600); savePrefs(); }
+  if (server.hasArg("ssmode")) { ssMode = server.arg("ssmode").toInt() == 1 ? 1 : 0; savePrefs(); }
+  if (server.hasArg("sswake")) { ssWake = constrain(server.arg("sswake").toInt(), 0, 2); savePrefs(); }
   if (server.hasArg("apname") || server.hasArg("apdefault")) {   // the meter's own WiFi name / password
     bool def = server.hasArg("apdefault");
     String n = def ? String(DEFAULT_WIFI_NAME) : server.arg("apname");
@@ -9426,7 +9458,6 @@ void handleSerial() {
   }
   if (s == "model wired" || s == "model battery") {
     wiredModel = s == "model wired"; prefs.putBool("wired", wiredModel);
-    if (!wiredModel && screenOff) { screenOff = false; oled.sendCommand(0xAF); }
     Serial.printf("Model set to %s (%s)\n", modelName(), wiredModel ? "wired, no battery" : "battery");
     toast("Model", modelName(), 1500);
     return;
@@ -9465,7 +9496,7 @@ void drawStandby(uint32_t now) {           // wired model, outside the schedule 
 // between them, so the screen never keeps the phone page waiting. Main loop frame only.
 bool pushServe = false, inServer = false;
 static uint16_t lastFrame[128 * 128];
-static bool lastFrameOk = false;
+bool lastFrameOk = false;
 void pushCanvasServed() {
   uint16_t* b = canvas.getBuffer();
   for (int y = 0; y < 128; y += 8) {
@@ -9806,7 +9837,16 @@ void setup() {
   limDb = constrain(prefs.getUChar("limDb", 100), 60, 125);
   limWin = constrain(prefs.getUChar("limWin", 2), 0, 2);
   limW = prefs.getUChar("limW", W_A) == W_C ? W_C : W_A;
-  dimSecs = prefs.getUShort("dim", 60);
+  if (prefs.isKey("ssOn")) {
+    ssOn = prefs.getBool("ssOn", true); ssSecs = prefs.getUShort("ssSecs", 60);
+    ssMode = prefs.getUChar("ssMode", 0); ssWake = prefs.getUChar("ssWake", 0);
+  } else {                                 // first start on this version: carry over the old dim setting
+    bool wired = prefs.getBool("wired", false);
+    int old = prefs.getUShort("dim", wired ? 600 : 60);
+    if (wired && old > 0 && old < 600) old = 600;   // wired model: it used to go off after 10 min
+    ssOn = old > 0; ssSecs = old > 0 ? old : (wired ? 600 : 60); ssMode = 0; ssWake = wired ? 2 : 0;
+  }
+  ssSecs = constrain(ssSecs, 10, 3600); if (ssMode > 1) ssMode = 0; if (ssWake > 2) ssWake = 0;
   theme = prefs.getUChar("theme", DEFAULT_THEME); applyTheme();
   if (!prefs.getBool("ui2", false)) {      // first start on this version: switch to the new look once
     theme = TH_CLEAN; prefs.putUChar("theme", theme); prefs.putBool("ui2", true); applyTheme();
@@ -10017,16 +10057,16 @@ void loop() {
     Serial.printf("Calibration offset: %+.2f dB\n", off);
   }
 
-  // ---- Screen dimming ----
-  if (dimSecs > 0 && !dimmed && calState == CAL_IDLE && now - lastActivity > (uint32_t)dimSecs * 1000UL) {
-    dimmed = true; setBrightness(1);
-  }
-  {                                        // wired model: screen off after 10 min idle; on by itself while over the limit
-    bool alarm = limOn && limState == 2;
-    bool wantOff = wiredModel && dimSecs > 0 && dimmed && !alarm && calState == CAL_IDLE && now - lastActivity > WIRED_SCREEN_OFF_MS;
-    if (standby) wantOff = !(standbyShowUntil && (int32_t)(now - standbyShowUntil) < 0);
-    if (wantOff && !screenOff) { screenOff = true; oled.sendCommand(0xAE); }        // display off (sleep)
-    else if (!wantOff && screenOff) { screenOff = false; oled.sendCommand(0xAF); }  // display on
+  // ---- Screen saver ----
+  {
+    bool loud = (ssWake == 1 && snapFastDb() >= redFrom) || (ssWake >= 1 && limOn && limState == 2);
+    if (loud || calState != CAL_IDLE) lastActivity = now;   // wakes by itself while loud, then waits the full time again
+    bool idle = ssOn && now - lastActivity > (uint32_t)ssSecs * 1000UL;
+    if (idle && !dimmed) dimmed = true;
+    else if (!idle && dimmed) dimmed = false;
+    bool off = dimmed && ssMode == 0, dim = dimmed && ssMode == 1;
+    if (standby) { off = !(standbyShowUntil && (int32_t)(now - standbyShowUntil) < 0); dim = false; }
+    applyScreen(off, dim, now, false);
   }
 
   // ---- Battery every 2 s ----

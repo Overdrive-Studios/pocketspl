@@ -1,1 +1,2 @@
-Removes the PocketSPL Server connection. Everything else is the same as before.
+New screen saver (phone: Settings > General > Screen saver). Turn it on or off, choose when it kicks in, whether the screen goes off or dims, and whether a loud level brings it back.
+Any button press now always brings the screen back. That press does nothing else.
