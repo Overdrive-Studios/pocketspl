@@ -1,2 +1,1 @@
-Settings > General is now a tidy list: tap Screen, Limit alarm, Alerts, Calibration and the rest to open each one.
-Screen saver settings are under General > Screen.
+Smoother phone app: pages slide in and out like an iPhone, buttons give when pressed, and on/off settings are now iPhone-style switches.
