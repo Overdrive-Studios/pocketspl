@@ -1,11 +1,11 @@
-run 44490100479 sha 273d1158d7b0ce5fc0b0d00c8f80bef58fae4a8a
+run 44493755572 sha 7973649902646ac84c91b6bd1a11f855d2759440
 build success
 deploy success
 {
-  "version": "1.1.31",
-  "notes": "The meter now keeps the last hour of the level graph itself. If your phone wasn't connected, open the page and the graph fills in, spikes and all.\nNew 1 min / 5 min / 15 min / 1 hour buttons under the graph.",
-  "url": "fw/PocketSPL-1.1.31.bin",
-  "size": 1760016,
-  "url_4mb": "fw/PocketSPL-1.1.31-4mb.bin",
-  "size_4mb": 1762896
+  "version": "1.1.32",
+  "notes": "Name your gigs: type a name at the top of the Gig page, and it stays with the gig when it's saved. Saved gigs can be renamed by tapping the title when you View them.",
+  "url": "fw/PocketSPL-1.1.32.bin",
+  "size": 1764464,
+  "url_4mb": "fw/PocketSPL-1.1.32-4mb.bin",
+  "size_4mb": 1767424
 }
