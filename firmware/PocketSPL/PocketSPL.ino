@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.39"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.40"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3273,6 +3273,8 @@ bool ssOn = true;            // screen saver on
 int  ssSecs = 60;            // kicks in after this many seconds without a press
 int  ssMode = 0;             // 0 = turn the screen off, 1 = dim it
 int  ssWake = 0;             // also wakes by itself, any of these ticked: 1 = level reaches red, 2 = over the limit alarm, 4 = level reaches amber
+// screen orientation (phone: Settings > General > Screen). The V2 case has the screen turned a quarter-turn.
+uint8_t scrRot = 0;          // 0 = standard (V1 case), 3 = V2 case, 1 = V2 case the other way round
 
 uint16_t levelColour(float db) {
   if (db >= redFrom) return C_RED;
@@ -3569,6 +3571,7 @@ void savePrefs() {
   prefs.putUChar("bri", brightness); prefs.putBool("wifi", wifiOn);
   prefs.putBool("limOn", limOn); prefs.putUChar("limDb", limDb); prefs.putUChar("limWin", limWin); prefs.putUChar("limW", limW);
   prefs.putBool("ssOn", ssOn); prefs.putUShort("ssSecs", ssSecs); prefs.putUChar("ssMode", ssMode); prefs.putUChar("ssWk", ssWake);
+  prefs.putUChar("rot", scrRot);
   prefs.putUChar("theme", theme);
 }
 
@@ -4361,6 +4364,14 @@ const char PAGE[] PROGMEM =
 "    </div>\n"
 "  </div>\n"
 "\n"
+"  <div class=\"card\" data-tab=\"settings\" data-sub=\"general\" data-page=\"display\">\n"
+"    <h2>Screen orientation</h2>\n"
+"    <div data-lock>\n"
+"    <div class=\"ctl stack\"><span>Which case is this meter in?</span><div class=\"seg\" id=\"segRot\"><button type=\"button\" data-v=\"0\">V1 case</button><button type=\"button\" data-v=\"3\">V2 case</button><button type=\"button\" data-v=\"1\">V2, flipped</button></div></div>\n"
+"    <p class=\"note\">The V2 case has the screen turned a quarter-turn. Pick V2 case. If the picture is then upside down, pick V2, flipped.</p>\n"
+"    </div>\n"
+"  </div>\n"
+"\n"
 "  <div class=\"card\" data-tab=\"settings\" data-sub=\"general\" data-page=\"alerts\">\n"
 "    <h2>Alerts</h2>\n"
 "    <p class=\"note\" id=\"alState\"></p>\n"
@@ -4694,6 +4705,7 @@ const char PAGE[] PROGMEM =
 "  if(st.ss){ if(document.activeElement!==$(\"ssOn\")) $(\"ssOn\").checked=st.ss.on; $(\"ssOpts\").hidden=!st.ss.on;\n"
 "    document.querySelectorAll(\".ssWk\").forEach(c=>{ if(document.activeElement!==c) c.checked=!!(st.ss.wake & +c.dataset.b); });\n"
 "    [[\"segSsSecs\",st.ss.secs],[\"segSsMode\",st.ss.mode]].forEach(([id,v])=>document.querySelectorAll(\"#\"+id+\" button\").forEach(b=>b.classList.toggle(\"on\",+b.dataset.v===v))); }\n"
+"  if(st.rot!==undefined) document.querySelectorAll(\"#segRot button\").forEach(b=>b.classList.toggle(\"on\",+b.dataset.v===st.rot));\n"
 "}\n"
 "let gigLog=null;\n"
 "async function loadLog(){\n"
@@ -4751,6 +4763,7 @@ const char PAGE[] PROGMEM =
 "$(\"ssOn\").onchange=()=>set(\"ss=\"+($(\"ssOn\").checked?1:0),$(\"ssOn\").checked?\"Screen saver on\":\"Screen stays on\");\n"
 "document.querySelectorAll(\"#segSsSecs button\").forEach(b=>b.onclick=()=>set(\"sssecs=\"+b.dataset.v,\"After \"+b.textContent));\n"
 "document.querySelectorAll(\"#segSsMode button\").forEach(b=>b.onclick=()=>set(\"ssmode=\"+b.dataset.v,b.dataset.v===\"1\"?\"Dims the screen\":\"Turns the screen off\"));\n"
+"document.querySelectorAll(\"#segRot button\").forEach(b=>b.onclick=()=>set(\"scrrot=\"+b.dataset.v,b.dataset.v===\"0\"?\"Screen set for the V1 case\":\"Screen set for the V2 case\"));\n"
 "document.querySelectorAll(\".ssWk\").forEach(c=>c.onchange=()=>{ let m=0; document.querySelectorAll(\".ssWk\").forEach(x=>{ if(x.checked) m|=+x.dataset.b; }); set(\"sswake=\"+m, m?\"Wakes by itself too\":\"Wakes with the button only\"); });\n"
 "\n"
 "$(\"freeze\").onclick=()=>{ frozen=!frozen; $(\"freeze\").textContent=frozen?\"Frozen\":\"Freeze\"; $(\"freeze\").classList.toggle(\"on\",frozen); render(); };\n"
@@ -5871,6 +5884,7 @@ void sendState() {
     snprintf(g, sizeof(g), "\"st\":%d,\"val\":", limState); s += g;
     if (limReady) { snprintf(g, sizeof(g), "%.1f},", limVal); s += g; } else s += "null},";
     snprintf(g, sizeof(g), "\"dose\":%.1f,\"ss\":{\"on\":%s,\"secs\":%d,\"mode\":%d,\"wake\":%d},\"dimmed\":%s,", warm ? 0.0f : dosePct(), ssOn ? "true" : "false", ssSecs, ssMode, ssWake, dimmed ? "true" : "false"); s += g;
+    snprintf(g, sizeof(g), "\"rot\":%d,", scrRot); s += g;
     snprintf(g, sizeof(g), "\"log\":{\"mins\":%lu,\"secs\":%lu,\"marks\":%d,\"t0\":%lld},",
              (unsigned long)snap.logTotal, (unsigned long)snap.logSecs, markCount, (long long)logStartEpochMs); s += g;
   }
@@ -5900,7 +5914,7 @@ void sendState() {
 
 // Settings lock: these need the PIN when the meter is locked. Weighting, response, Reset MAX + Leq and markers don't.
 const char* const PROTECTED_ARGS[] = {"bright", "amber", "red", "cal", "cal94", "fcalback", "wifi", "limOn", "limDb", "limWin", "limW",
-                                      "ss", "sssecs", "ssmode", "sswake", "apname", "apdefault", "newlog", "lockset", "lockoff", "factory", "sch", "schon", "alon", "altopic", "alhold", "alrep", "alback", "altest", "alnew"};
+                                      "ss", "sssecs", "ssmode", "sswake", "scrrot", "apname", "apdefault", "newlog", "lockset", "lockoff", "factory", "sch", "schon", "alon", "altopic", "alhold", "alrep", "alback", "altest", "alnew"};
 int verCmp(const String& a, const String& b) {   // compares "1.0.10" with "1.0.9" the right way
   int pa[3] = {0, 0, 0}, pb[3] = {0, 0, 0};
   sscanf(a.c_str(), "%d.%d.%d", &pa[0], &pa[1], &pa[2]); sscanf(b.c_str(), "%d.%d.%d", &pb[0], &pb[1], &pb[2]);
@@ -5984,6 +5998,10 @@ void handleSet() {
   if (server.hasArg("sssecs")) { ssSecs = constrain(server.arg("sssecs").toInt(), 10, 3600); savePrefs(); }
   if (server.hasArg("ssmode")) { ssMode = server.arg("ssmode").toInt() == 1 ? 1 : 0; savePrefs(); }
   if (server.hasArg("sswake")) { ssWake = constrain(server.arg("sswake").toInt(), 0, 7); savePrefs(); }
+  if (server.hasArg("scrrot")) {             // screen orientation: turn the picture straight away
+    int v = server.arg("scrrot").toInt(); scrRot = (v == 1 || v == 3) ? v : 0; savePrefs();
+    oled.setRotation(scrRot); oled.fillScreen(0); lastFrameOk = false;
+  }
   if (server.hasArg("apname") || server.hasArg("apdefault")) {   // the meter's own WiFi name / password
     bool def = server.hasArg("apdefault");
     String n = def ? String(DEFAULT_WIFI_NAME) : server.arg("apname");
@@ -10192,6 +10210,7 @@ void setup() {
   limDb = constrain(prefs.getUChar("limDb", 100), 60, 125);
   limWin = constrain(prefs.getUChar("limWin", 2), 0, 2);
   limW = prefs.getUChar("limW", W_A) == W_C ? W_C : W_A;
+  scrRot = prefs.getUChar("rot", 0); if (scrRot != 1 && scrRot != 3) scrRot = 0;
   if (prefs.isKey("ssOn")) {
     ssOn = prefs.getBool("ssOn", true); ssSecs = prefs.getUShort("ssSecs", 60);
     ssMode = prefs.getUChar("ssMode", 0); if (prefs.isKey("ssWk")) ssWake = prefs.getUChar("ssWk", 0);
@@ -10229,6 +10248,7 @@ void setup() {
 
   SPI.begin(PIN_OLED_SCK, -1, PIN_OLED_MOSI, PIN_OLED_CS);
   oled.begin(OLED_SPI_HZ);
+  oled.setRotation(scrRot);                // V2 case: screen turned a quarter-turn
   pinMode(PIN_BTN_HIGH, OUTPUT); digitalWrite(PIN_BTN_HIGH, HIGH);   // button pins again, after the screen starts
   pinMode(PIN_BTN, INPUT_PULLDOWN);
   setBrightness(brightness);

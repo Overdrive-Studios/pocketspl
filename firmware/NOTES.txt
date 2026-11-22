@@ -1,1 +1,1 @@
-Gig page: the rolling averages line up neatly, and ones still filling up show in grey (with a short note) instead of an asterisk.
+New: Settings > General > Screen > Screen orientation. Meters in the new V2 case (screen turned a quarter-turn) pick V2 case so the picture is the right way up. Meters in the original case stay on V1 case and nothing changes for them.
