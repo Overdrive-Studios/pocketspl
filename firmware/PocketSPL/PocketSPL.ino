@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.45"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.46"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3563,6 +3563,24 @@ uint32_t plugHoldUntil = 0;   // after the fast check sees USB plugged/unplugged
 // second. The charger lifts it; pulling the cable drops it straight away (and plugging in lifts it).
 // A step of 35 mV between one second and the next flips charging at once.
 float vRing[8]; uint8_t vN = 0, vHead = 0; uint32_t lastVFast = 0;
+// Heat warning: there's no sensor on the battery, so use the temperature inside the ESP32 chip as an early
+// warning that the inside of the case is getting hot (the chip normally runs 10-20 C above the room).
+float chipC = 0; bool caseHot = false; uint32_t lastTempAt = 0, lastHotToast = 0;
+const float HOT_ON_C = 72.0f, HOT_OFF_C = 65.0f;
+void heatTick(uint32_t now) {
+  if (now - lastTempAt < 5000) return;
+  lastTempAt = now;
+  float t = temperatureRead();
+  if (isnan(t) || t < -20 || t > 150) return;
+  chipC = chipC == 0 ? t : chipC + (t - chipC) * 0.3f;     // smoothed
+  if (!caseHot && chipC >= HOT_ON_C) { caseHot = true; lastHotToast = 0; Serial.printf("Running hot: %.0f C\n", chipC); }
+  else if (caseHot && chipC <= HOT_OFF_C) caseHot = false;
+  if (caseHot && (lastHotToast == 0 || now - lastHotToast > 30000)) {
+    lastHotToast = now;
+    toast("Too hot", charging ? "Unplug USB, let it cool" : "Let it cool down", 4000);
+  }
+}
+
 void fastPlugCheck(uint32_t now) {
   if (gauge != G_MAX17048 || now - lastVFast < 250) return;
   lastVFast = now;
@@ -4654,6 +4672,7 @@ const char PAGE[] PROGMEM =
 "  renderGig();\n"
 "  if(!held){\n"
 "  $(\"wLbl\").textContent = W[st.w]; $(\"rLbl\").textContent = st.r>=3 ? \"Fast\" : R[st.r];\n"
+"  if(st.hot && !window._hot) toast(\"The meter is running hot. Unplug USB and let it cool.\"); window._hot=!!st.hot;\n"
 "  const big = $(\"db\"); const isNum = !st.calst && !st.micfault && !st.warm && !st.over; big.classList.toggle(\"word\", !isNum && !st.warm);\n"
 "  if(st.calst){ big.textContent = \"CAL\"; big.style.color=\"var(--ink)\"; $(\"unit\").textContent = st.calst==1?\"Fit the 94 dB calibrator…\":\"Measuring…\"; }\n"
 "  else if(st.micfault){ big.textContent=\"MIC FAULT\"; big.style.color=\"var(--red)\"; $(\"unit\").textContent=\"No signal from the mic. Check its 5 wires.\"; }\n"
@@ -5886,6 +5905,8 @@ void sendState() {
   s += "\"latest\":\""; s += latestFw; s += "\",";
   s += "\"lock\":"; s += lockPin.length() ? "true," : "false,";
   s += "\"micfault\":"; s += micFaulty() ? "true," : "false,";
+  s += "\"hot\":"; s += caseHot ? "true," : "false,";
+  s += "\"chipc\":"; s += String((int)(chipC + 0.5f)); s += ",";
   s += "\"fs\":"; s += fsOk ? "true," : "false,";
   s += "\"logo\":"; s += hasLogo() ? "true," : "false,";
   if (factoryCalSet) { char fc[32]; snprintf(fc, sizeof(fc), "\"fcal\":%.2f,", factoryCal); s += fc; } else s += "\"fcal\":null,";
@@ -10498,6 +10519,7 @@ void loop() {
   }
 
   fastPlugCheck(now);
+  heatTick(now);
   // ---- Battery every 2 s ----
   if (now - lastBatt >= 2000) {
     lastBatt = now; readBattery();
