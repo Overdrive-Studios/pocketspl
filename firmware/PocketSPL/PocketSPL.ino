@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.41"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.42"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -4543,6 +4543,9 @@ const char PAGE[] PROGMEM =
 "    <p class=\"note\">PocketSPL is made by Overdrive Music Studio. Help, updates and USB repair: <a href=\"https://overdrive-studios.github.io/pocketspl/\" target=\"_blank\" rel=\"noopener\">overdrive-studios.github.io/pocketspl</a></p>\n"
 "    <p class=\"note\"><a href=\"https://www.instagram.com/studio_overdrive/\" target=\"_blank\" rel=\"noopener\">Instagram</a>&emsp;<a href=\"https://www.facebook.com/profile.php?id=61558215059242\" target=\"_blank\" rel=\"noopener\">Facebook</a></p>\n"
 "    <p class=\"note\">A sound level indicator for live sound. Not a certified Class 1 or Class 2 sound level meter.</p>\n"
+"    <h3>Restart</h3>\n"
+"    <p class=\"note\">Turns the meter off and on again. Nothing is lost: settings, WiFi and the current gig log are kept.</p>\n"
+"    <button class=\"btn wide\" id=\"restartBtn\" type=\"button\" data-lock>Restart the meter</button>\n"
 "    <h3>Factory reset</h3>\n"
 "    <button class=\"btn wide danger\" id=\"factoryBtn\" type=\"button\" data-lock>Factory reset</button>\n"
 "    <div class=\"confirm\" id=\"factoryConfirm\" hidden>\n"
@@ -5308,6 +5311,8 @@ const char PAGE[] PROGMEM =
 "$(\"lockRemove\").onclick=async()=>{ if(!confirm(\"Remove the lock? Anyone on the meter's WiFi can then change the settings.\")) return;\n"
 "  if(await set(\"lockoff=1\",\"Lock removed\")){ savePin(\"\"); pinVerified=false; } renderLock(); };\n"
 "$(\"fcalBack\").onclick=()=>set(\"fcalback=1\",\"Back to factory calibration\");\n"
+"$(\"restartBtn\").onclick=async()=>{ if(!confirm(\"Restart the meter? It's back in about 10 seconds.\")) return;\n"
+"  await set(\"restart=1\",\"Restarting. Back in about 10 seconds\"); };\n"
 "$(\"factoryBtn\").onclick=()=>{ $(\"factoryConfirm\").hidden=false; $(\"factoryBtn\").hidden=true; };\n"
 "$(\"factoryNo\").onclick=()=>{ $(\"factoryConfirm\").hidden=true; $(\"factoryBtn\").hidden=false; };\n"
 "$(\"factoryYes\").onclick=async()=>{ $(\"factoryConfirm\").hidden=true; $(\"factoryBtn\").hidden=false;\n"
@@ -5932,7 +5937,7 @@ void sendState() {
 
 // Settings lock: these need the PIN when the meter is locked. Weighting, response, Reset MAX + Leq and markers don't.
 const char* const PROTECTED_ARGS[] = {"bright", "amber", "red", "cal", "cal94", "fcalback", "wifi", "limOn", "limDb", "limWin", "limW",
-                                      "ss", "sssecs", "ssmode", "sswake", "scrrot", "apname", "apdefault", "newlog", "lockset", "lockoff", "factory", "sch", "schon", "alon", "altopic", "alhold", "alrep", "alback", "altest", "alnew"};
+                                      "ss", "sssecs", "ssmode", "sswake", "scrrot", "apname", "apdefault", "newlog", "lockset", "lockoff", "factory", "restart", "sch", "schon", "alon", "altopic", "alhold", "alrep", "alback", "altest", "alnew"};
 int verCmp(const String& a, const String& b) {   // compares "1.0.10" with "1.0.9" the right way
   int pa[3] = {0, 0, 0}, pb[3] = {0, 0, 0};
   sscanf(a.c_str(), "%d.%d.%d", &pa[0], &pa[1], &pa[2]); sscanf(b.c_str(), "%d.%d.%d", &pb[0], &pb[1], &pb[2]);
@@ -6046,6 +6051,11 @@ void handleSet() {
   }
   if (server.hasArg("lockoff")) { lockPin = ""; prefs.putString("pin", ""); toast("Unlocked", "Lock removed", 1500); }
   if (server.hasArg("factory")) factoryReset();
+  if (server.hasArg("restart")) {            // restart button on the phone: keeps everything, the current gig log is saved first
+    saveCurrentLog(true);
+    drawUpdateScreen("Restart", "Restarting", -1, C_ACCENT);
+    restartAt = millis() + 1500;
+  }
   sendState();
 }
 
