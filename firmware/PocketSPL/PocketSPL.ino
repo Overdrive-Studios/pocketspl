@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.42"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.43"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -9239,7 +9239,7 @@ void clHeader(uint32_t now) {               // weighting pill, WiFi, battery
   bool edit = editUntil && (int32_t)(now - editUntil) < 0;
   fillRRAA(7, 7, 33, 14, 7, edit ? CL_SELECT : CL_SURFACE);
   textAAc(FT9, W_NAME[wMode], 23, 18, edit ? CL_TEXT : CL_TEXT2);
-  if (wifiOn) drawWifiIcon(64, 7, phoneLinked() ? CL_SELECT : CL_TEXT3);
+  if (wifiOn) drawWifiIcon(50, 7, phoneLinked() ? CL_SELECT : CL_TEXT3);   // moved left to make room for the battery %
   if (wiredModel) return;
   if (gauge == G_NONE) { textAAr(FT9, "--", 120, 18, CL_TEXT3); return; }
   bool low = battLow(), blinkOn = (now / 500) % 2 == 0;
@@ -9251,6 +9251,8 @@ void clHeader(uint32_t now) {               // weighting pill, WiFi, battery
   int bw = constrain(battPct, 8, 100) * 15 / 100;
   fillRRAA(102, 11, bw, 6, 2, fill);
   if (charging) drawBolt(92, 9, fill);
+  char pb[6]; snprintf(pb, sizeof(pb), "%d%%", battPct);   // battery % beside the icon
+  textAAr(FT9, pb, charging ? 89 : 97, 18, low ? CL_OVER : CL_TEXT2);
 }
 
 void clFooter(const char* label, const char* value, uint16_t vcol, const char* right, uint16_t rcol) {

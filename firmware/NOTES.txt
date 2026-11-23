@@ -1,2 +1,3 @@
+New: the battery % now shows next to the battery icon at the top of the screen.
 New: Restart button (Settings > General > About and help). It turns the meter off and on again without losing anything.
-Fixed: the battery % and charging now show if the battery is plugged in after the meter is already on (for example started on USB first). If the battery is unplugged, the meter picks it up again as soon as it is plugged back in.
+Fixed: the battery % and charging now show if the battery is plugged in after the meter is already on.
