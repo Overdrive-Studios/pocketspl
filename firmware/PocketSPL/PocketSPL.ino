@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.47"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.48"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3566,7 +3566,7 @@ float vRing[8]; uint8_t vN = 0, vHead = 0; uint32_t lastVFast = 0;
 // Heat warning: there's no sensor on the battery, so use the temperature inside the ESP32 chip as an early
 // warning that the inside of the case is getting hot (the chip normally runs 10-20 C above the room).
 float chipC = 0; bool caseHot = false; uint32_t lastTempAt = 0, lastHotToast = 0;
-const float HOT_ON_C = 60.0f, HOT_OFF_C = 55.0f;
+const float HOT_ON_C = 65.0f, HOT_OFF_C = 58.0f;
 void heatTick(uint32_t now) {
   if (now - lastTempAt < 5000) return;
   lastTempAt = now;
