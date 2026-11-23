@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.43"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.44"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3557,6 +3557,24 @@ void gaugeInit() {
 // started on USB with no battery, keep looking for it (every 2 s) instead of giving up at power-on; and if the
 // battery is unplugged, drop it and start looking again.
 uint8_t gaugeFails = 0;
+uint32_t plugHoldUntil = 0;   // after the fast check sees USB plugged/unplugged, trust it over the slow charge-rate for this long
+
+// Fast USB plug / unplug: the Feather has no USB-power sense pin, so watch the battery voltage 4 times a
+// second. The charger lifts it; pulling the cable drops it straight away (and plugging in lifts it).
+// A step of 35 mV between one second and the next flips charging at once.
+float vRing[8]; uint8_t vN = 0, vHead = 0; uint32_t lastVFast = 0;
+void fastPlugCheck(uint32_t now) {
+  if (gauge != G_MAX17048 || now - lastVFast < 250) return;
+  lastVFast = now;
+  uint16_t v; if (!readReg16BE(0x36, 0x02, v)) return;
+  vRing[vHead] = v * 78.125e-6f; vHead = (vHead + 1) % 8; if (vN < 8) vN++;
+  if (vN < 8) return;
+  float older = 0, newer = 0;
+  for (int i = 0; i < 4; i++) { older += vRing[(vHead + i) % 8]; newer += vRing[(vHead + 4 + i) % 8]; }
+  float d = (newer - older) / 4;
+  if (charging && d <= -0.035f)      { charging = false; plugHoldUntil = now + 90000; vN = 0; }   // cable pulled
+  else if (!charging && d >= 0.035f) { charging = true;  plugHoldUntil = now + 90000; vN = 0; }   // cable plugged in
+}
 void readBattery() {
   uint16_t v;
   if (gauge == G_NONE) {
@@ -3572,7 +3590,8 @@ void readBattery() {
     bool ok = readReg16BE(0x36, 0x02, v);
     if (ok) battV = v * 78.125e-6f;
     if (ok && readReg16BE(0x36, 0x04, v)) battPct = constrain((int)(v / 256.0f + 0.5f), 0, 100);
-    if (ok && readReg16BE(0x36, 0x16, v)) charging = ((int16_t)v) * 0.208f > 0.5f;   // %/hour
+    if (ok && readReg16BE(0x36, 0x16, v) && (int32_t)(millis() - plugHoldUntil) >= 0)
+      charging = ((int16_t)v) * 0.208f > 0.5f;   // %/hour (slow; a plug/unplug seen by the fast check below wins for a while)
     if (ok) gaugeFails = 0;
     else if (++gaugeFails >= 3) { gauge = G_NONE; charging = false; }   // battery unplugged
   } else if (gauge == G_LC709203) {
@@ -10478,6 +10497,7 @@ void loop() {
     applyScreen(off, dim, tNow, false);
   }
 
+  fastPlugCheck(now);
   // ---- Battery every 2 s ----
   if (now - lastBatt >= 2000) {
     lastBatt = now; readBattery();
