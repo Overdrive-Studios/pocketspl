@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.44"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.45"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -10454,8 +10454,8 @@ void loop() {
     savePrefs();
   }
   if (btn.down && !btn.longDone) {                                 // show what letting go will do
-    uint32_t held = now - btn.downAt;
-    if (held >= HOLD_RESPONSE_MS) toast(R_NAME[(rMode + 1) % NUM_R], wifiOn ? "Hold 3 s: WiFi off" : "Hold 3 s: WiFi on", 150);
+    int32_t held = (int32_t)(millis() - btn.downAt);   // millis(), not the loop's 'now': the press can be stamped after 'now'
+    if (held >= (int32_t)HOLD_RESPONSE_MS) toast(R_NAME[(rMode + 1) % NUM_R], wifiOn ? "Hold 3 s: WiFi off" : "Hold 3 s: WiFi on", 150);
   }
   if (tapPending && now - lastTapAt > DOUBLE_CLICK_MS) {
     tapPending = false;
