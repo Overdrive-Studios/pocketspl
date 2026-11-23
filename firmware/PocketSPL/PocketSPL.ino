@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.40"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.41"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3548,15 +3548,33 @@ void gaugeInit() {
     lcWrite(0x08, 0x0BA6);       // 25 C
     lcWrite(0x07, 0xAA55);       // start RSOC estimate
   }
-  Serial.printf("Battery gauge: %s\n", gauge == G_MAX17048 ? "MAX17048" : gauge == G_LC709203 ? "LC709203F" : "not found");
+  static bool told = false;      // say "not found" once; it's re-checked every 2 s until a battery is plugged in
+  if (gauge != G_NONE || !told) Serial.printf("Battery gauge: %s\n", gauge == G_MAX17048 ? "MAX17048" : gauge == G_LC709203 ? "LC709203F" : "not found");
+  told = true;
 }
 
+// The gauge chip runs off the battery, so it isn't there until a battery is plugged in. If the meter was
+// started on USB with no battery, keep looking for it (every 2 s) instead of giving up at power-on; and if the
+// battery is unplugged, drop it and start looking again.
+uint8_t gaugeFails = 0;
 void readBattery() {
   uint16_t v;
+  if (gauge == G_NONE) {
+    gaugeInit();
+    if (gauge == G_MAX17048) {   // battery just plugged in: fresh state-of-charge estimate
+      Wire.beginTransmission(0x36); Wire.write(0x06); Wire.write(0x40); Wire.write(0x00); Wire.endTransmission();
+      delay(5);
+    }
+    gaugeFails = 0;
+    if (gauge == G_NONE) return;
+  }
   if (gauge == G_MAX17048) {
-    if (readReg16BE(0x36, 0x02, v)) battV = v * 78.125e-6f;
-    if (readReg16BE(0x36, 0x04, v)) battPct = constrain((int)(v / 256.0f + 0.5f), 0, 100);
-    if (readReg16BE(0x36, 0x16, v)) charging = ((int16_t)v) * 0.208f > 0.5f;   // %/hour
+    bool ok = readReg16BE(0x36, 0x02, v);
+    if (ok) battV = v * 78.125e-6f;
+    if (ok && readReg16BE(0x36, 0x04, v)) battPct = constrain((int)(v / 256.0f + 0.5f), 0, 100);
+    if (ok && readReg16BE(0x36, 0x16, v)) charging = ((int16_t)v) * 0.208f > 0.5f;   // %/hour
+    if (ok) gaugeFails = 0;
+    else if (++gaugeFails >= 3) { gauge = G_NONE; charging = false; }   // battery unplugged
   } else if (gauge == G_LC709203) {
     if (lcRead(0x09, v)) battV = v / 1000.0f;
     if (lcRead(0x0D, v)) battPct = constrain((int)v, 0, 100);
