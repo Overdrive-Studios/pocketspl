@@ -1,1 +1,1 @@
-New: Settings > General > Screen > Screen orientation. Meters in the new V2 case (screen turned a quarter-turn) pick V2 case so the picture is the right way up. Meters in the original case stay on V1 case and nothing changes for them.
+Fixed: the battery % and charging now show if the battery is plugged in after the meter is already on (for example started on USB first). If the battery is unplugged, the meter picks it up again as soon as it is plugged back in.
