@@ -1,4 +1,3 @@
-Changed: the screen is now always set for the V2 case. The Screen orientation setting has been removed.
 New: heat warning. If the inside of the meter gets unusually hot, the screen shows "Too hot" (and "Unplug USB" while charging) and the phone shows a warning.
 Fixed: a quick press no longer flashes "Leq / Hold 3 s" on the screen. That message now only shows when you are actually holding the button.
 New: unplugging the USB cable stops the charging bolt straight away (and plugging in shows it straight away).

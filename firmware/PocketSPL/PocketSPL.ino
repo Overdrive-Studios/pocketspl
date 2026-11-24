@@ -3274,7 +3274,7 @@ int  ssSecs = 60;            // kicks in after this many seconds without a press
 int  ssMode = 0;             // 0 = turn the screen off, 1 = dim it
 int  ssWake = 0;             // also wakes by itself, any of these ticked: 1 = level reaches red, 2 = over the limit alarm, 4 = level reaches amber
 // screen orientation (phone: Settings > General > Screen). The V2 case has the screen turned a quarter-turn.
-const uint8_t scrRot = 3;    // V2 case: screen turned a quarter-turn (fixed, not a setting)
+const uint8_t scrRot = 3;    // screen rotation
 
 uint16_t levelColour(float db) {
   if (db >= redFrom) return C_RED;
@@ -10302,7 +10302,7 @@ void setup() {
 
   SPI.begin(PIN_OLED_SCK, -1, PIN_OLED_MOSI, PIN_OLED_CS);
   oled.begin(OLED_SPI_HZ);
-  oled.setRotation(scrRot);                // V2 case: screen turned a quarter-turn
+  oled.setRotation(scrRot);
   pinMode(PIN_BTN_HIGH, OUTPUT); digitalWrite(PIN_BTN_HIGH, HIGH);   // button pins again, after the screen starts
   pinMode(PIN_BTN, INPUT_PULLDOWN);
   setBrightness(brightness);
