@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.51"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.52"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3275,7 +3275,7 @@ int  ssMode = 0;             // 0 = turn the screen off, 1 = dim it
 int  ssWake = 0;             // also wakes by itself, any of these ticked: 1 = level reaches red, 2 = over the limit alarm, 4 = level reaches amber
 // screen orientation (phone: Settings > General > Screen). The V2 case has the screen turned a quarter-turn.
 const uint8_t scrRot = 3;    // screen rotation
-const uint8_t TERMS_VERSION = 1;   // bump when the terms change: everyone is asked to accept again
+const uint8_t TERMS_VERSION = 2;   // bump when the terms change: everyone is asked to accept again
 uint8_t termsOk = 0;            // terms version accepted on this meter (cleared by factory reset)
 
 uint16_t levelColour(float db) {
@@ -4282,11 +4282,15 @@ const char PAGE[] PROGMEM =
 "      </ul>\n"
 "      <h3>3. Your hearing</h3>\n"
 "      <p>The meter shows how loud it is. It does not protect your hearing. Use hearing protection when it's loud, whatever the meter shows.</p>\n"
-"      <h3>4. Warranty and user error</h3>\n"
-"      <p>If the meter has a fault in its materials or workmanship, contact us and we'll repair or replace it, or give you a refund.</p>\n"
-"      <p>We may refuse a warranty claim if the fault or damage was caused by misuse, accident, neglect, drops, water or heat, unsuitable chargers or batteries, opening or modifying the meter, repairs by anyone else, or not following these terms.</p>\n"
+"      <h3>4. Warranty (12 months)</h3>\n"
+"      <p>PocketSPL is covered by our warranty against defects for 12 months from the day you receive it.</p>\n"
+"      <p><b>What we'll do:</b> if the meter has a fault in its materials or workmanship, we'll repair or replace it, or give you a refund.</p>\n"
+"      <p><b>How to claim:</b> contact us first (details below) with the meter's serial number (Settings › General › About and help) and what's wrong. If we ask you to send it in, switch it off and pack it well.</p>\n"
+"      <p><b>Costs:</b> if your claim is accepted, we'll refund your reasonable postage for sending the meter to us, and we'll pay to send it back.</p>\n"
+"      <p><b>When we may refuse a claim:</b> if the fault or damage was caused by misuse, accident, neglect, drops, water or heat, unsuitable chargers or batteries, opening or modifying the meter, repairs by anyone else, or not following these terms.</p>\n"
+"      <p>The benefits of this warranty are in addition to your other rights and remedies under the law.</p>\n"
 "      <h3>5. Australian Consumer Law</h3>\n"
-"      <p>Our goods come with guarantees that cannot be excluded under the Australian Consumer Law. You are entitled to a replacement or refund for a major failure and compensation for any other reasonably foreseeable loss or damage. You are also entitled to have the goods repaired or replaced if the goods fail to be of acceptable quality and the failure does not amount to a major failure.</p>\n"
+"      <p>Our goods come with guarantees that cannot be excluded under the Australian Consumer Law. You are entitled to a replacement or refund for a major failure and for compensation for any other reasonably foreseeable loss or damage. You are also entitled to have the goods repaired or replaced if the goods fail to be of acceptable quality and the failure does not amount to a major failure.</p>\n"
 "      <p>Nothing in these terms excludes, restricts or changes those rights.</p>\n"
 "      <h3>6. Limit of liability</h3>\n"
 "      <p>As far as the law allows, we're not responsible for indirect or consequential loss from using the meter or relying on its readings.</p>\n"
@@ -4294,7 +4298,8 @@ const char PAGE[] PROGMEM =
 "      <p>Readings and logs are stored on the meter and on your phone. They are only sent anywhere else if you set that up.</p>\n"
 "      <h3>8. Changes</h3>\n"
 "      <p>We may update these terms. If we do, the app will ask you to accept the new version.</p>\n"
-"      <p class=\"note\">PocketSPL is made by Overdrive Music Studio.</p>\n"
+"      <h3>9. Contact us</h3>\n"
+"      <p>Overdrive Music Studio<br>33 Honeyeater Drive, Highfields QLD 4352<br>Phone: 0418 587 668<br>Email: <a href=\"mailto:overdrivestudios21@gmail.com\">overdrivestudios21@gmail.com</a></p>\n"
 "    </div>\n"
 "    <div id=\"tcAsk\">\n"
 "      <label class=\"check\"><input type=\"checkbox\" id=\"tcChk\"> I have read and agree to these terms</label>\n"
