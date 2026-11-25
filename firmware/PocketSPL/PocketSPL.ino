@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.49"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.50"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3563,21 +3563,25 @@ uint32_t plugHoldUntil = 0;   // after the fast check sees USB plugged/unplugged
 // second. The charger lifts it; pulling the cable drops it straight away (and plugging in lifts it).
 // A step of 35 mV between one second and the next flips charging at once.
 float vRing[8]; uint8_t vN = 0, vHead = 0; uint32_t lastVFast = 0;
-// Heat warning: there's no sensor on the battery, so use the temperature inside the ESP32 chip as an early
-// warning that the inside of the case is getting hot (the chip normally runs 10-20 C above the room).
-float chipC = 0; bool caseHot = false; uint32_t lastTempAt = 0, lastHotToast = 0;
-const float HOT_ON_C = 65.0f, HOT_OFF_C = 58.0f;
+// Heat cut-out: there's no sensor on the battery, so use the temperature inside the ESP32 chip (it runs
+// 10-20 C above what's around it). If it stays at the limit for 10 s, save the gig log and shut the meter
+// down. The Feather's charger is hardware and keeps charging while USB is in, so the screen says to unplug.
+float chipC = 0; bool caseHot = false; uint32_t lastTempAt = 0; uint8_t hotCount = 0;
+const float HOT_ON_C = 65.0f;
+void powerOff(const char* l1, const char* l2, const char* hint = "Charge with USB-C");
+void saveCurrentLog(bool force);
 void heatTick(uint32_t now) {
   if (now - lastTempAt < 5000) return;
   lastTempAt = now;
   float t = temperatureRead();
   if (isnan(t) || t < -20 || t > 150) return;
   chipC = chipC == 0 ? t : chipC + (t - chipC) * 0.3f;     // smoothed
-  if (!caseHot && chipC >= HOT_ON_C) { caseHot = true; lastHotToast = 0; Serial.printf("Running hot: %.0f C\n", chipC); }
-  else if (caseHot && chipC <= HOT_OFF_C) caseHot = false;
-  if (caseHot && (lastHotToast == 0 || now - lastHotToast > 30000)) {
-    lastHotToast = now;
-    toast("Too hot", charging ? "Unplug USB, let it cool" : "Let it cool down", 4000);
+  hotCount = chipC >= HOT_ON_C ? hotCount + 1 : 0;
+  caseHot = hotCount > 0;
+  if (hotCount >= 3) {                                     // ~10 s at the limit
+    Serial.printf("Too hot (%.0f C): shutting down\n", chipC);
+    saveCurrentLog(true);
+    powerOff("Too hot", "Shut down", charging ? "Unplug USB, let it cool" : "Let it cool down");
   }
 }
 
@@ -9514,11 +9518,11 @@ void clUpdateScreen(const char* big, const char* small, int pct, uint16_t colour
   textAAc(FT9, small, 64, 110, CL_TEXT2);
 }
 
-void clPowerOff(const char* l1, const char* l2) {
+void clPowerOff(const char* l1, const char* l2, const char* hint) {
   canvas.fillScreen(C_BG);
   textAAc(FT17, l1, 64, 56, CL_OVER);
   textAAc(FT17, l2, 64, 76, CL_OVER);
-  textAAc(FT9, "Charge with USB-C", 64, 100, CL_TEXT2);
+  textAAc(FT9, hint, 64, 100, CL_TEXT2);
 }
 
 // ---- start-up: logo, a progress bar that tracks the real start-up, and details underneath ----
@@ -9560,15 +9564,15 @@ void bootAnim(float to, uint32_t ms, float fadeFrom, float fadeTo) {   // glide 
   bootProg = to;
 }
 
-void powerOff(const char* l1, const char* l2) {
-  if (theme == TH_CLEAN) clPowerOff(l1, l2);
+void powerOff(const char* l1, const char* l2, const char* hint) {
+  if (theme == TH_CLEAN) clPowerOff(l1, l2, hint);
   else {
     canvas.fillScreen(C_BG);
     canvas.setFont(L.big); canvas.setTextColor(C_RED);
     textCentered(l1, 64, 56);
     textCentered(l2, 64, 80);
     canvas.setFont(L.small); canvas.setTextColor(C_DIM);
-    textCentered("Charge with USB-C", 64, 100);
+    textCentered(hint, 64, 100);
   }
   pushCanvas(); delay(3000);
   oled.enableDisplay(false);
