@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.50"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.51"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3275,6 +3275,8 @@ int  ssMode = 0;             // 0 = turn the screen off, 1 = dim it
 int  ssWake = 0;             // also wakes by itself, any of these ticked: 1 = level reaches red, 2 = over the limit alarm, 4 = level reaches amber
 // screen orientation (phone: Settings > General > Screen). The V2 case has the screen turned a quarter-turn.
 const uint8_t scrRot = 3;    // screen rotation
+const uint8_t TERMS_VERSION = 1;   // bump when the terms change: everyone is asked to accept again
+uint8_t termsOk = 0;            // terms version accepted on this meter (cleared by factory reset)
 
 uint16_t levelColour(float db) {
   if (db >= redFrom) return C_RED;
@@ -3906,6 +3908,12 @@ const char PAGE[] PROGMEM =
 "/* messages */\n"
 ".toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#17191b;font-weight:600;padding:10px 16px;border-radius:var(--r-ctl);font-size:15px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:calc(100% - 32px);text-align:center;z-index:30}\n"
 ".toast.show{opacity:1}\n"
+".gate{position:fixed;inset:0;z-index:60;background:var(--body);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:max(16px,env(safe-area-inset-top)) 16px max(20px,env(safe-area-inset-bottom))}\n"
+".gatein{max-width:460px;margin:0 auto}\n"
+".gate h1{margin:4px 0 2px}.gate h2{margin:6px 0}\n"
+".terms{background:var(--panel);border:1px solid var(--rule);border-radius:var(--r-group);padding:6px 16px 10px;margin:10px 0 6px;font-size:15px;line-height:1.5}\n"
+".terms h3{font-size:16px;margin:14px 0 4px}.terms p{margin:6px 0}.terms ul{margin:6px 0;padding-left:20px}.terms li{margin:4px 0}\n"
+"body.gated{overflow:hidden}\n"
 ".limbanner{border-radius:var(--r-ctl);padding:10px 12px;font-weight:600;font-size:15px;margin:0 0 12px;color:#17191b}\n"
 ".limbanner.amber{background:var(--amber)}.limbanner.red{background:var(--red);color:#fff}\n"
 ".updbanner{background:var(--panel);border-left:3px solid var(--ink);border-radius:6px;padding:10px 12px;margin:0 0 12px;font-size:15px;font-weight:600}\n"
@@ -4255,6 +4263,46 @@ const char PAGE[] PROGMEM =
 "</style>\n"
 "</head>\n"
 "<body>\n"
+"<div class=\"gate\" id=\"tcGate\" hidden>\n"
+"  <div class=\"gatein\">\n"
+"    <h1>PocketSPL</h1>\n"
+"    <h2>Terms of use</h2>\n"
+"    <p class=\"note\">Please read and accept these before using your meter.</p>\n"
+"    <div class=\"terms\" id=\"tcText\">\n"
+"      <h3>1. What PocketSPL is</h3>\n"
+"      <p>PocketSPL is a hand-built sound level meter for guidance, monitoring and logging. It is not a certified (Class 1 or Class 2) sound level meter. Don't rely on it for legal, regulatory, workplace health and safety or hearing-protection compliance measurements.</p>\n"
+"      <h3>2. Your responsibility</h3>\n"
+"      <p>Once you receive the meter, you are responsible for how it is used, charged, stored and handled. In particular:</p>\n"
+"      <ul>\n"
+"      <li>Charge it only from USB-C, with a reputable charger or computer port.</li>\n"
+"      <li>Charge it on a hard, non-flammable surface where you can keep an eye on it. Don't charge it in direct sun, in a hot car, under bedding or in a bag.</li>\n"
+"      <li>Keep it dry and away from heat above 45 °C, and don't drop, crush or puncture it.</li>\n"
+"      <li>If the battery swells, gets hot, smells or is damaged, unplug the meter, stop using it and contact us.</li>\n"
+"      <li>Don't open the case, change the battery or modify the hardware. Only install software updates through this app.</li>\n"
+"      </ul>\n"
+"      <h3>3. Your hearing</h3>\n"
+"      <p>The meter shows how loud it is. It does not protect your hearing. Use hearing protection when it's loud, whatever the meter shows.</p>\n"
+"      <h3>4. Warranty and user error</h3>\n"
+"      <p>If the meter has a fault in its materials or workmanship, contact us and we'll repair or replace it, or give you a refund.</p>\n"
+"      <p>We may refuse a warranty claim if the fault or damage was caused by misuse, accident, neglect, drops, water or heat, unsuitable chargers or batteries, opening or modifying the meter, repairs by anyone else, or not following these terms.</p>\n"
+"      <h3>5. Australian Consumer Law</h3>\n"
+"      <p>Our goods come with guarantees that cannot be excluded under the Australian Consumer Law. You are entitled to a replacement or refund for a major failure and compensation for any other reasonably foreseeable loss or damage. You are also entitled to have the goods repaired or replaced if the goods fail to be of acceptable quality and the failure does not amount to a major failure.</p>\n"
+"      <p>Nothing in these terms excludes, restricts or changes those rights.</p>\n"
+"      <h3>6. Limit of liability</h3>\n"
+"      <p>As far as the law allows, we're not responsible for indirect or consequential loss from using the meter or relying on its readings.</p>\n"
+"      <h3>7. Your data</h3>\n"
+"      <p>Readings and logs are stored on the meter and on your phone. They are only sent anywhere else if you set that up.</p>\n"
+"      <h3>8. Changes</h3>\n"
+"      <p>We may update these terms. If we do, the app will ask you to accept the new version.</p>\n"
+"      <p class=\"note\">PocketSPL is made by Overdrive Music Studio.</p>\n"
+"    </div>\n"
+"    <div id=\"tcAsk\">\n"
+"      <label class=\"check\"><input type=\"checkbox\" id=\"tcChk\"> I have read and agree to these terms</label>\n"
+"      <button class=\"btn primary wide\" id=\"tcOk\" type=\"button\" disabled>Agree and continue</button>\n"
+"    </div>\n"
+"    <button class=\"btn wide\" id=\"tcClose\" type=\"button\" hidden>Close</button>\n"
+"  </div>\n"
+"</div>\n"
 "<div class=\"wrap\">\n"
 "  <header>\n"
 "    <h1>PocketSPL</h1>\n"
@@ -4573,6 +4621,7 @@ const char PAGE[] PROGMEM =
 "    <div class=\"row\"><label>Model</label><output id=\"modelVal\">--</output></div>\n"
 "    <div class=\"row\"><label>Serial number</label><output id=\"snVal\">--</output></div>\n"
 "    <div class=\"row\"><label>Software</label><output id=\"fwVer2\">--</output></div>\n"
+"    <button class=\"btn wide\" id=\"tcView\" type=\"button\">Terms of use</button>\n"
 "    <p class=\"note\">PocketSPL is made by Overdrive Music Studio. Help, updates and USB repair: <a href=\"https://overdrive-studios.github.io/pocketspl/\" target=\"_blank\" rel=\"noopener\">overdrive-studios.github.io/pocketspl</a></p>\n"
 "    <p class=\"note\"><a href=\"https://www.instagram.com/studio_overdrive/\" target=\"_blank\" rel=\"noopener\">Instagram</a>&emsp;<a href=\"https://www.facebook.com/profile.php?id=61558215059242\" target=\"_blank\" rel=\"noopener\">Facebook</a></p>\n"
 "    <p class=\"note\">A sound level indicator for live sound. Not a certified Class 1 or Class 2 sound level meter.</p>\n"
@@ -4659,8 +4708,17 @@ const char PAGE[] PROGMEM =
 "function toast(t){ const e=$(\"toast\"); e.textContent=t; e.classList.add(\"show\"); clearTimeout(e._t); e._t=setTimeout(()=>e.classList.remove(\"show\"),1800); }\n"
 "\n"
 "let held=false;\n"
+"function renderGate(){ const need = st && st.tc===false; const g=$(\"tcGate\");\n"
+"  if(need && g.hidden){ g.hidden=false; $(\"tcAsk\").hidden=false; $(\"tcClose\").hidden=true; document.body.classList.add(\"gated\"); g.scrollTop=0; }\n"
+"}\n"
+"$(\"tcChk\").onchange=e=>{ $(\"tcOk\").disabled=!e.target.checked; };\n"
+"$(\"tcOk\").onclick=async()=>{ const good=await call(\"/api/set?tcok=1\"); render();\n"
+"  if(good && st && st.tc){ $(\"tcGate\").hidden=true; document.body.classList.remove(\"gated\"); toast(\"Thanks. Enjoy your meter\"); } else toast(\"Not connected. Try again\"); };\n"
+"$(\"tcView\").onclick=()=>{ const g=$(\"tcGate\"); g.hidden=false; $(\"tcAsk\").hidden=true; $(\"tcClose\").hidden=false; document.body.classList.add(\"gated\"); g.scrollTop=0; };\n"
+"$(\"tcClose\").onclick=()=>{ $(\"tcGate\").hidden=true; document.body.classList.remove(\"gated\"); };\n"
+"\n"
 "function render(){\n"
-"  if(st){ renderUpd(); renderLock(); renderSchedule(); renderAlerts(); renderMenu(); if(st.logo!==logoSeen){ logoSeen=st.logo; loadLogoPrev(); } }\n"
+"  if(st){ renderGate(); renderUpd(); renderLock(); renderSchedule(); renderAlerts(); renderMenu(); if(st.logo!==logoSeen){ logoSeen=st.logo; loadLogoPrev(); } }\n"
 "  $(\"dot\").classList.toggle(\"ok\", ok);\n"
 "  $(\"conn\").textContent = ok ? (st&&st.standby ? \"Standby until \"+(st.next||\"--\") : \"Live\") : \"Not connected\";\n"
 "  $(\"meter\").classList.toggle(\"off\", !ok);\n"
@@ -5921,6 +5979,7 @@ void sendState() {
   s += "\"allast\":\""; s += jsonEsc(alLast); s += "\",\"online\":"; s += netOnline() ? "true," : "false,";
   if (lastDenied) s += "\"denied\":true,";
   if (lastPinOk) s += "\"pinok\":true,";
+  s += "\"tc\":"; s += termsOk >= TERMS_VERSION ? "true," : "false,";
   lastDenied = false; lastPinOk = false;
   const char* mode = netMode == NET_STA ? "sta" : netMode == NET_JOINING ? "joining" : netMode == NET_AP ? "ap" : "off";
   {                                          // gig mode
@@ -6018,6 +6077,10 @@ void handleSet() {
 
   bool wantsProtected = false;
   for (const char* k : PROTECTED_ARGS) if (server.hasArg(k)) wantsProtected = true;
+  if (server.hasArg("tcok")) {               // terms of use accepted on the phone (first time the app is opened)
+    termsOk = TERMS_VERSION; prefs.putUChar("tcv", termsOk);
+    Serial.println("Terms of use accepted");
+  }
   if (wantsProtected && !pinOk()) { lastDenied = true; toast("Locked", "Unlock on the phone", 1500); sendState(); return; }
 
   if (server.hasArg("bright")) { brightness = constrain(server.arg("bright").toInt(), 1, 15); setBrightness(brightness); savePrefs(); }
@@ -10289,6 +10352,7 @@ void setup() {
   latestFw = prefs.getString("latest", "");
   if (!validVersion(latestFw)) latestFw = "";
   lockPin = prefs.getString("pin", "");
+  termsOk = prefs.getUChar("tcv", 0);
   if (lockPin.length() && !validPin(lockPin)) lockPin = "";
   factoryCalSet = prefs.getBool("fcalok", false);
   factoryCal = prefs.getFloat("fcal", 0.0f);

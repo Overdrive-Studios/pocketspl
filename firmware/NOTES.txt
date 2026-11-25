@@ -1,3 +1,4 @@
+New: terms of use. The first time the app is opened on a meter (and after a factory reset), it asks you to read and accept the terms before using it. You can read them again any time in Settings > General > About and help.
 New: heat cut-out. If the inside of the meter gets too hot, it saves the gig log and shuts down. Unplug USB and let it cool before switching it back on.
 Fixed: a quick press no longer flashes "Leq / Hold 3 s" on the screen. That message now only shows when you are actually holding the button.
 New: unplugging the USB cable stops the charging bolt straight away (and plugging in shows it straight away).
