@@ -1,3 +1,4 @@
+Changed: a start-up logo now fills the whole screen (zoomed to fit edge to edge). Upload your logo again to see it.
 Updated: terms of use now include the full 12-month warranty and contact details. You will be asked to accept the new terms once.
 New: terms of use. The first time the app is opened on a meter (and after a factory reset), it asks you to read and accept the terms before using it. You can read them again any time in Settings > General > About and help.
 New: heat cut-out. If the inside of the meter gets too hot, it saves the gig log and shuts down. Unplug USB and let it cool before switching it back on.

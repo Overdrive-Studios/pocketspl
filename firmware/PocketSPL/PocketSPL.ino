@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.52"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.53"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -5627,7 +5627,7 @@ const char PAGE[] PROGMEM =
 "    if(ink){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } }\n"
 "  if(x1<0){ x0=0; y0=0; x1=t.width-1; y1=t.height-1; }\n"
 "  const cw=x1-x0+1, ch=y1-y0+1;\n"
-"  const w=128, h=128, s=Math.min(112/cw, 112/ch), dw=cw*s, dh=ch*s;\n"
+"  const w=128, h=128, s=Math.max(128/cw, 128/ch), dw=cw*s, dh=ch*s;   // zoom to fill the whole screen (the ends of a long logo get trimmed)\n"
 "  const c=document.createElement(\"canvas\"); c.width=w; c.height=h; const g=c.getContext(\"2d\");\n"
 "  g.fillStyle=\"rgb(\"+bg.join(\",\")+\")\"; g.fillRect(0,0,w,h); g.imageSmoothingQuality=\"high\"; g.drawImage(img,x0,y0,cw,ch,(w-dw)/2,(h-dh)/2,dw,dh); URL.revokeObjectURL(u);\n"
 "  const d=g.getImageData(0,0,w,h).data, buf=new ArrayBuffer(8+w*h*2), v=new DataView(buf);\n"
