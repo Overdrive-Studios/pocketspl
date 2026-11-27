@@ -1,3 +1,4 @@
+New: Plugins page (Settings > General > Plugins). Paid add-ons are unlocked with a licence code made for your meter. First plugin: Yamaha MTX control - turns a zone or output on an MTX3 / MTX5-D down a step at a time when the room is over the limit, and back up once it has settled.
 New: the phone RTA now labels every one of the 31 bands (20 Hz to 20 kHz), with the octaves in bold. On a narrow screen the labels turn on their side so they all fit.
 New: the phone RTA labels every octave (31, 63, 125, 250, 500, 1k, 2k, 4k, 8k, 16k Hz) with faint guide lines, and the meter screen RTA has a tick at each octave.
 New: RTA line. The phone RTA has Bars, Line and Both views (Line draws a smooth curve so you can see the shape easily), and the meter screen RTA now has a line across the tops of the bars.

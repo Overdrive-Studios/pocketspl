@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.60"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.61"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3929,6 +3929,8 @@ const char PAGE[] PROGMEM =
 ".rtac{aspect-ratio:900/560}\n"
 "@media (orientation:portrait){.rtac{aspect-ratio:auto;width:100%;height:max(260px,calc(100dvh - 250px - env(safe-area-inset-bottom)))}}\n"
 ".rtahead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}\n"
+".pill{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.3px;padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:middle;background:var(--rule);color:var(--mute)}.pill.on{background:var(--green);color:#fff}\n"
+"details.adv{margin:12px 0}details.adv summary{cursor:pointer;color:var(--mute);font-size:14px}\n"
 ".rtactl{display:flex;gap:8px;align-items:center}.rtactl .seg button{padding:5px 9px;font-size:13px}\n"
 ".rtahead h2{margin:0}\n"
 ".rollgrid{display:grid;grid-template-columns:52px repeat(3,1fr);margin:4px 0 4px;border-bottom:1px solid var(--rule)}\n"
@@ -4403,6 +4405,7 @@ const char PAGE[] PROGMEM =
 "      <button type=\"button\" class=\"mrow\" data-go=\"display\"><i class=\"ic\" style=\"background:#0a84ff\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"3\"/><path d=\"M8 15l3-4 2 2 3-4\"/></svg></i><b>Screen</b><span id=\"sum_display\"></span></button>\n"
 "      <button type=\"button\" class=\"mrow\" data-go=\"alarm\"><i class=\"ic\" style=\"background:#ff453a\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3v2M5 19h14M7 19v-6a5 5 0 0 1 10 0v6\"/></svg></i><b>Limit alarm</b><span id=\"sum_alarm\"></span></button>\n"
 "      <button type=\"button\" class=\"mrow\" data-go=\"alerts\"><i class=\"ic\" style=\"background:#ff9f0a\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7\"/><path d=\"M10 20a2 2 0 0 0 4 0\"/></svg></i><b>Alerts</b><span id=\"sum_alerts\"></span></button>\n"
+"      <button type=\"button\" class=\"mrow\" data-go=\"plugins\"><i class=\"ic\" style=\"background:#5e5ce6\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 3h4v3a2 2 0 1 0 4 0V3h3v7h-3a2 2 0 1 0 0 4h3v7h-7v-3a2 2 0 1 0-4 0v3H3v-7h3a2 2 0 1 0 0-4H3V3h7z\"/></svg></i><b>Plugins</b><span id=\"sum_plugins\"></span></button>\n"
 "      <button type=\"button\" class=\"mrow\" data-go=\"cal\"><i class=\"ic\" style=\"background:#30d158\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"M12 12l4-3\"/><path d=\"M12 4v2M4 12h2M18 12h2\"/></svg></i><b>Calibration</b><span id=\"sum_cal\"></span></button>\n"
 "    </div>\n"
 "    <div class=\"mgroup\">\n"
@@ -4489,6 +4492,36 @@ const char PAGE[] PROGMEM =
 "    <div class=\"schbtns\" style=\"margin-top:12px\"><button class=\"btn\" id=\"alSave\" type=\"button\">Save</button><button class=\"btn\" id=\"alTest\" type=\"button\">Send a test</button></div>\n"
 "    </div>\n"
 "    <p class=\"note\">Uses the limit, the average (1, 5 or 15 min) and LAeq or LCeq from <b>Limit alarm</b>. The meter needs to be on a WiFi network with internet (Settings → WiFi).</p>\n"
+"  </div>\n"
+"\n"
+"  <div class=\"card\" data-tab=\"settings\" data-sub=\"general\" data-page=\"plugins\">\n"
+"    <h2>Plugins</h2>\n"
+"    <p class=\"note\">Add-ons for your meter. Each one is unlocked with a licence code made for this meter.</p>\n"
+"    <div class=\"row\"><label>Licence ID</label><output id=\"lidVal\">--</output></div>\n"
+"    <div class=\"row\"><button class=\"btn\" id=\"lidCopy\" type=\"button\">Copy licence ID</button></div>\n"
+"    <p class=\"note\">Give this ID when you buy a plugin. To buy one, contact Overdrive Music Studio: overdrivestudios21@gmail.com or 0418 587 668.</p>\n"
+"    <h3>Yamaha MTX control <span class=\"pill\" id=\"mtxBadge\">Locked</span></h3>\n"
+"    <p class=\"note\">Works with a Yamaha MTX3 or MTX5-D on the venue's network. When the room goes over your limit, the meter turns a zone or output down a little at a time, and brings it back up once it's been back under for a while. It never turns anything up past where it started, and never cuts more than you allow.</p>\n"
+"    <div id=\"mtxBuy\">\n"
+"      <div class=\"pinrow\"><input id=\"licCode\" placeholder=\"Paste your licence code\" autocomplete=\"off\" autocapitalize=\"off\" spellcheck=\"false\" aria-label=\"Licence code\"><button class=\"btn\" id=\"licOk\" type=\"button\">Unlock</button></div>\n"
+"    </div>\n"
+"    <div id=\"mtxSet\" hidden data-lock>\n"
+"      <p class=\"note\" id=\"mtxMsg\"></p>\n"
+"      <label class=\"check\"><input type=\"checkbox\" id=\"mtxOn\"> Control the MTX</label>\n"
+"      <div class=\"ctl stack\"><span>MTX model</span><div class=\"seg\" id=\"segMtxModel\"><button type=\"button\" data-v=\"0\">MTX3</button><button type=\"button\" data-v=\"1\">MTX5-D</button></div></div>\n"
+"      <div class=\"ctl stack\"><span>MTX IP address</span><div class=\"pinrow\"><input id=\"mtxIp\" inputmode=\"decimal\" placeholder=\"192.168.0.20\" autocomplete=\"off\" aria-label=\"MTX IP address\"><button class=\"btn\" id=\"mtxIpSave\" type=\"button\">Save</button></div></div>\n"
+"      <div class=\"ctl stack\"><span>Turn down</span><div class=\"seg\" id=\"segMtxTgt\"><button type=\"button\" data-v=\"0\">Zone</button><button type=\"button\" data-v=\"1\">Output</button></div></div>\n"
+"      <div class=\"ctl stack\"><span>Number</span><div class=\"seg\" id=\"segMtxIdx\"></div></div>\n"
+"      <div class=\"ctl stack\"><span>Each step</span><div class=\"seg\" id=\"segMtxStep\"><button type=\"button\" data-v=\"1\">1 dB</button><button type=\"button\" data-v=\"2\">2 dB</button><button type=\"button\" data-v=\"3\">3 dB</button></div></div>\n"
+"      <div class=\"ctl stack\"><span>Turn down no more than</span><div class=\"seg\" id=\"segMtxMax\"><button type=\"button\" data-v=\"3\">3 dB</button><button type=\"button\" data-v=\"6\">6 dB</button><button type=\"button\" data-v=\"10\">10 dB</button><button type=\"button\" data-v=\"15\">15 dB</button></div></div>\n"
+"      <div class=\"ctl stack\"><span>Bring it back up after it's been under for</span><div class=\"seg\" id=\"segMtxRec\"><button type=\"button\" data-v=\"1\">1 min</button><button type=\"button\" data-v=\"2\">2 min</button><button type=\"button\" data-v=\"5\">5 min</button><button type=\"button\" data-v=\"10\">10 min</button></div></div>\n"
+"      <div class=\"row\"><button class=\"btn\" id=\"mtxTest\" type=\"button\">Check the connection</button></div>\n"
+"      <details class=\"adv\"><summary>Advanced</summary>\n"
+"        <p class=\"note\">Only if your MTX setup needs a different parameter. Leave empty to use the zone or output above.</p>\n"
+"        <div class=\"pinrow\"><input id=\"mtxAdr\" placeholder=\"MTX:mem_512/60002/0/0/0/0/0\" autocomplete=\"off\" autocapitalize=\"off\" spellcheck=\"false\" aria-label=\"MTX address\"><button class=\"btn\" id=\"mtxAdrSave\" type=\"button\">Save</button></div>\n"
+"      </details>\n"
+"      <p class=\"note\">Uses the limit and average from <b>Limit alarm</b>. The meter and the MTX must be on the same network (Settings → WiFi), and the MTX's remote control must be allowed in ProVisionaire.</p>\n"
+"    </div>\n"
 "  </div>\n"
 "\n"
 "  <div class=\"card\" data-tab=\"settings\" data-sub=\"general\" data-page=\"cal\" data-lock>\n"
@@ -4723,8 +4756,29 @@ const char PAGE[] PROGMEM =
 "$(\"tcView\").onclick=()=>{ const g=$(\"tcGate\"); g.hidden=false; $(\"tcAsk\").hidden=true; $(\"tcClose\").hidden=false; document.body.classList.add(\"gated\"); g.scrollTop=0; };\n"
 "$(\"tcClose\").onclick=()=>{ $(\"tcGate\").hidden=true; document.body.classList.remove(\"gated\"); };\n"
 "\n"
+"/* ---- plugins ---- */\n"
+"function renderPlugins(){ if(!st||!st.plg) return; const on=!!st.plg.mtx, m=st.mtx||{};\n"
+"  $(\"lidVal\").textContent=st.lid||\"--\"; $(\"mtxBadge\").textContent=on?\"Active\":\"Locked\"; $(\"mtxBadge\").classList.toggle(\"on\",on);\n"
+"  $(\"mtxBuy\").hidden=on; $(\"mtxSet\").hidden=!on; const sp=$(\"sum_plugins\"); if(sp) sp.textContent=on?(m.on?\"MTX on\":\"MTX off\"):\"\";\n"
+"  if(!on) return;\n"
+"  $(\"mtxMsg\").textContent=m.msg||\"\"; if(document.activeElement!==$(\"mtxOn\")) $(\"mtxOn\").checked=!!m.on;\n"
+"  if(document.activeElement!==$(\"mtxIp\")) $(\"mtxIp\").value=m.ip||\"\"; if(document.activeElement!==$(\"mtxAdr\")) $(\"mtxAdr\").value=m.adr||\"\";\n"
+"  const n=m.model?16:8, seg=$(\"segMtxIdx\"); if(seg.childElementCount!==n){ seg.innerHTML=\"\"; for(let i=1;i<=n;i++){ const b=document.createElement(\"button\"); b.type=\"button\"; b.dataset.v=i; b.textContent=i; b.onclick=()=>set(\"mtxidx=\"+i,(m.tgt?\"Output \":\"Zone \")+i); seg.appendChild(b); } }\n"
+"  [[\"segMtxModel\",m.model],[\"segMtxTgt\",m.tgt],[\"segMtxIdx\",m.idx],[\"segMtxStep\",m.step],[\"segMtxMax\",m.max],[\"segMtxRec\",m.rec]].forEach(([id,v])=>document.querySelectorAll(\"#\"+id+\" button\").forEach(b=>b.classList.toggle(\"on\",+b.dataset.v===v)));\n"
+"}\n"
+"$(\"lidCopy\").onclick=async()=>{ try{ await navigator.clipboard.writeText(st.lid); toast(\"Licence ID copied\"); }catch(e){ toast(st&&st.lid?st.lid:\"Not connected\"); } };\n"
+"$(\"licOk\").onclick=async()=>{ const code=$(\"licCode\").value.trim(); if(!code){ toast(\"Paste the licence code first\"); return; }\n"
+"  try{ const r=await fetch(\"/api/set?plg=mtx&lic=\"+encodeURIComponent(code),{cache:\"no-store\"});\n"
+"    if(!r.ok){ toast(await r.text()||\"That code isn't valid for this meter\"); return; }\n"
+"    st=await r.json(); $(\"licCode\").value=\"\"; render(); toast(\"Yamaha MTX control unlocked\"); }catch(e){ toast(\"Not connected\"); } };\n"
+"async function setChecked(q,msg){ try{ const r=await fetch(\"/api/set?\"+q+pinQ(),{cache:\"no-store\"}); if(!r.ok){ toast(await r.text()); return; } st=await r.json(); render(); toast(st.denied?\"Locked: enter the PIN in Settings → General → Lock\":msg); }catch(e){ toast(\"Not connected\"); } }\n"
+"$(\"mtxOn\").onchange=e=>set(\"mtxon=\"+(e.target.checked?1:0), e.target.checked?\"MTX control on\":\"MTX control off\");\n"
+"$(\"mtxIpSave\").onclick=()=>setChecked(\"mtxip=\"+encodeURIComponent($(\"mtxIp\").value.trim()),\"MTX address saved\");\n"
+"$(\"mtxAdrSave\").onclick=()=>setChecked(\"mtxadr=\"+encodeURIComponent($(\"mtxAdr\").value.trim()),\"Saved\");\n"
+"$(\"mtxTest\").onclick=async()=>{ await set(\"mtxtest=1\",\"Checking…\"); setTimeout(()=>{ render(); toast(st&&st.mtx?st.mtx.msg:\"Not connected\"); },1800); };\n"
+"[[\"segMtxModel\",\"mtxmodel\",v=>v==1?\"MTX5-D\":\"MTX3\"],[\"segMtxTgt\",\"mtxtgt\",v=>v==1?\"Turns down an output\":\"Turns down a zone\"],[\"segMtxStep\",\"mtxstep\",v=>v+\" dB steps\"],[\"segMtxMax\",\"mtxmax\",v=>\"No more than \"+v+\" dB\"],[\"segMtxRec\",\"mtxrec\",v=>\"Back up after \"+v+\" min under\"]].forEach(([id,k,f])=>document.querySelectorAll(\"#\"+id+\" button\").forEach(b=>b.onclick=()=>set(k+\"=\"+b.dataset.v,f(b.dataset.v))));\n"
 "function render(){\n"
-"  if(st){ renderGate(); renderUpd(); renderLock(); renderSchedule(); renderAlerts(); renderMenu(); if(st.logo!==logoSeen){ logoSeen=st.logo; loadLogoPrev(); } }\n"
+"  if(st){ renderGate(); renderPlugins(); renderUpd(); renderLock(); renderSchedule(); renderAlerts(); renderMenu(); if(st.logo!==logoSeen){ logoSeen=st.logo; loadLogoPrev(); } }\n"
 "  $(\"dot\").classList.toggle(\"ok\", ok);\n"
 "  $(\"conn\").textContent = ok ? (st&&st.standby ? \"Standby until \"+(st.next||\"--\") : \"Live\") : \"Not connected\";\n"
 "  $(\"meter\").classList.toggle(\"off\", !ok);\n"
@@ -5941,6 +5995,10 @@ static void jnum(String& s, const char* key, bool valid, float v) {
   s += t;
 }
 
+// plugins (defined further down)
+String pluginsJson(); bool licenceValid(const char* plugId, const String& code); int pluginIndex(const String& id);
+void pluginsLoad(); void mtxSave(); extern bool mtxOn; extern String mtxIp; extern uint8_t mtxModel, mtxTarget, mtxIdx, mtxStepDb, mtxMaxCutDb, mtxRecMin;
+extern String mtxAddrCustom; extern volatile bool mtxTestReq, mtxReconnect; extern bool plugOn[4];
 void sendState() {
   lastAppAt = millis();                    // the phone app is open
   takeSnapshot();
@@ -6008,6 +6066,7 @@ void sendState() {
   if (lastDenied) s += "\"denied\":true,";
   if (lastPinOk) s += "\"pinok\":true,";
   s += "\"tc\":"; s += termsOk >= TERMS_VERSION ? "true," : "false,";
+  s += pluginsJson();
   lastDenied = false; lastPinOk = false;
   const char* mode = netMode == NET_STA ? "sta" : netMode == NET_JOINING ? "joining" : netMode == NET_AP ? "ap" : "off";
   {                                          // gig mode
@@ -6057,7 +6116,7 @@ void sendState() {
 
 // Settings lock: these need the PIN when the meter is locked. Weighting, response, Reset MAX + Leq and markers don't.
 const char* const PROTECTED_ARGS[] = {"bright", "amber", "red", "cal", "cal94", "fcalback", "wifi", "limOn", "limDb", "limWin", "limW",
-                                      "ss", "sssecs", "ssmode", "sswake", "apname", "apdefault", "wifiauto", "newlog", "lockset", "lockoff", "factory", "restart", "sch", "schon", "alon", "altopic", "alhold", "alrep", "alback", "altest", "alnew"};
+                                      "ss", "sssecs", "ssmode", "sswake", "apname", "apdefault", "wifiauto", "newlog", "lockset", "lockoff", "factory", "restart", "sch", "schon", "alon", "altopic", "alhold", "alrep", "alback", "altest", "alnew", "mtxon", "mtxip", "mtxmodel", "mtxtgt", "mtxidx", "mtxstep", "mtxmax", "mtxrec", "mtxadr"};
 int verCmp(const String& a, const String& b) {   // compares "1.0.10" with "1.0.9" the right way
   int pa[3] = {0, 0, 0}, pb[3] = {0, 0, 0};
   sscanf(a.c_str(), "%d.%d.%d", &pa[0], &pa[1], &pa[2]); sscanf(b.c_str(), "%d.%d.%d", &pb[0], &pb[1], &pb[2]);
@@ -6105,6 +6164,26 @@ void handleSet() {
 
   bool wantsProtected = false;
   for (const char* k : PROTECTED_ARGS) if (server.hasArg(k)) wantsProtected = true;
+  if (server.hasArg("lic") && server.hasArg("plg")) {   // licence code for a plugin
+    int i = pluginIndex(server.arg("plg")); String code = server.arg("lic"); code.trim();
+    if (i < 0 || !licenceValid(server.arg("plg").c_str(), code)) { server.send(400, "text/plain", "That code isn't valid for this meter"); return; }
+    prefs.putString((String("lic_") + server.arg("plg")).c_str(), code); pluginsLoad();
+    Serial.println("Plugin unlocked: " + server.arg("plg"));
+  }
+  {                                          // Yamaha MTX plugin settings
+    bool ch = false;
+    if (server.hasArg("mtxon")) { mtxOn = server.arg("mtxon") == "1"; ch = true; }
+    if (server.hasArg("mtxip")) { String v = server.arg("mtxip"); v.trim(); IPAddress ip; if (v.length() && !ip.fromString(v)) { server.send(400, "text/plain", "That isn't an IP address (like 192.168.0.20)"); return; } mtxIp = v; ch = true; }
+    if (server.hasArg("mtxmodel")) { mtxModel = server.arg("mtxmodel") == "1" ? 1 : 0; ch = true; }
+    if (server.hasArg("mtxtgt")) { mtxTarget = server.arg("mtxtgt") == "1" ? 1 : 0; ch = true; }
+    if (server.hasArg("mtxidx")) { mtxIdx = constrain(server.arg("mtxidx").toInt(), 1, 16); ch = true; }
+    if (server.hasArg("mtxstep")) { mtxStepDb = constrain(server.arg("mtxstep").toInt(), 1, 3); ch = true; }
+    if (server.hasArg("mtxmax")) { mtxMaxCutDb = constrain(server.arg("mtxmax").toInt(), 3, 20); ch = true; }
+    if (server.hasArg("mtxrec")) { mtxRecMin = constrain(server.arg("mtxrec").toInt(), 1, 15); ch = true; }
+    if (server.hasArg("mtxadr")) { String v = server.arg("mtxadr"); v.trim(); if (v.length() > 80 || v.indexOf(' ') >= 0) { server.send(400, "text/plain", "That address doesn't look right"); return; } mtxAddrCustom = v; ch = true; }
+    if (ch) { mtxSave(); mtxReconnect = true; }
+    if (server.hasArg("mtxtest")) mtxTestReq = true;
+  }
   if (server.hasArg("tcok")) {               // terms of use accepted on the phone (first time the app is opened)
     termsOk = TERMS_VERSION; prefs.putUChar("tcv", termsOk);
     Serial.println("Terms of use accepted");
@@ -6252,6 +6331,181 @@ void handleNet() {                         // forget a network, start-up prefere
 
 // ---------------- Alerts (ntfy.sh push to the ntfy phone app) ----------------
 bool netOnline() { return netMode == NET_STA && WiFi.status() == WL_CONNECTED; }
+
+// ================= PLUGINS (paid add-ons, unlocked with a licence code) =================
+// A licence code is an ECDSA P-256 signature (made with Overdrive's private key, which is never on the meter)
+// over "PocketSPL|<licence ID>|<plugin id>". The licence ID comes from the chip itself, so a code only works
+// on the meter it was made for. Checked here with the public key below; works offline.
+#include "mbedtls/ecdsa.h"
+#include "mbedtls/ecp.h"
+#include "mbedtls/sha256.h"
+static const uint8_t LIC_PUB[65] = { 0x04, 0x01, 0x85, 0x62, 0x5e, 0x91, 0x6f, 0x7e, 0x80, 0xed, 0xbb, 0xc3, 0x3c, 0x95, 0x34, 0x99, 0x46, 0xcc, 0x50, 0xcf, 0x6d, 0x45, 0xe1, 0x90, 0xfc, 0x3c, 0x7c, 0xaf, 0xf6, 0xaf, 0xbf, 0x56, 0x10, 0x27, 0x49, 0x95, 0x62, 0x1c, 0x5d, 0x98, 0xfa, 0x0c, 0xee, 0xd0, 0x2e, 0x7a, 0xde, 0xf1, 0x56, 0xa2, 0x5c, 0x65, 0x32, 0xcc, 0x1f, 0xf8, 0x92, 0x6f, 0x30, 0x42, 0x53, 0x48, 0xd8, 0xb9, 0xf5 };
+struct PluginDef { const char* id; const char* name; };
+const PluginDef PLUGINS[] = { {"mtx", "Yamaha MTX control"} };
+const int NUM_PLUGINS = sizeof(PLUGINS) / sizeof(PLUGINS[0]);
+bool plugOn[4] = {false};
+
+String licenceId() {                         // 12 hex characters from the chip's factory MAC: can't be changed
+  uint64_t mac = ESP.getEfuseMac(); char b[13];
+  for (int i = 0; i < 6; i++) snprintf(b + i * 2, 3, "%02X", (uint8_t)(mac >> (8 * i)));
+  return String(b);
+}
+int b64urlDecode(const String& in, uint8_t* out, int max) {
+  int n = 0; uint32_t acc = 0; int bits = 0;
+  for (unsigned i = 0; i < in.length(); i++) {
+    char c = in[i]; int v;
+    if (c >= 'A' && c <= 'Z') v = c - 'A'; else if (c >= 'a' && c <= 'z') v = c - 'a' + 26;
+    else if (c >= '0' && c <= '9') v = c - '0' + 52; else if (c == '-' || c == '+') v = 62; else if (c == '_' || c == '/') v = 63;
+    else if (c == '=' || c == ' ' || c == '\n' || c == '\r') continue; else return -1;
+    acc = (acc << 6) | v; bits += 6;
+    if (bits >= 8) { bits -= 8; if (n >= max) return -1; out[n++] = (acc >> bits) & 0xFF; }
+  }
+  return n;
+}
+bool licenceValid(const char* plugId, const String& code) {
+  uint8_t sig[64];
+  if (b64urlDecode(code, sig, 64) != 64) return false;
+  String msg = String("PocketSPL|") + licenceId() + "|" + plugId;
+  uint8_t h[32];
+  if (mbedtls_sha256((const unsigned char*)msg.c_str(), msg.length(), h, 0) != 0) return false;
+  mbedtls_ecp_group grp; mbedtls_ecp_point Q; mbedtls_mpi r, s;
+  mbedtls_ecp_group_init(&grp); mbedtls_ecp_point_init(&Q); mbedtls_mpi_init(&r); mbedtls_mpi_init(&s);
+  bool ok = mbedtls_ecp_group_load(&grp, MBEDTLS_ECP_DP_SECP256R1) == 0
+         && mbedtls_ecp_point_read_binary(&grp, &Q, LIC_PUB, sizeof(LIC_PUB)) == 0
+         && mbedtls_mpi_read_binary(&r, sig, 32) == 0 && mbedtls_mpi_read_binary(&s, sig + 32, 32) == 0
+         && mbedtls_ecdsa_verify(&grp, h, 32, &Q, &r, &s) == 0;
+  mbedtls_mpi_free(&r); mbedtls_mpi_free(&s); mbedtls_ecp_point_free(&Q); mbedtls_ecp_group_free(&grp);
+  return ok;
+}
+void pluginsLoad() {
+  for (int i = 0; i < NUM_PLUGINS; i++) {
+    String code = prefs.getString((String("lic_") + PLUGINS[i].id).c_str(), "");
+    plugOn[i] = code.length() && licenceValid(PLUGINS[i].id, code);
+  }
+}
+int pluginIndex(const String& id) { for (int i = 0; i < NUM_PLUGINS; i++) if (id == PLUGINS[i].id) return i; return -1; }
+bool pluginActive(const char* id) { int i = pluginIndex(id); return i >= 0 && plugOn[i]; }
+
+// ================= PLUGIN: Yamaha MTX control =================
+// When the room is over the limit, the meter turns a zone or output on a Yamaha MTX3 / MTX5-D down a step at a
+// time (Yamaha's remote control protocol, TCP port 49280 on the venue network), never more than the most-cut
+// setting, and brings it back up once it's been back under for a while. It never goes above where it started.
+// If someone moves that level on the MTX, the meter takes that as the new starting point and stops cutting.
+bool mtxOn = false; String mtxIp = ""; uint8_t mtxModel = 0;   // 0 MTX3, 1 MTX5-D
+uint8_t mtxTarget = 0;                       // 0 zone, 1 output
+uint8_t mtxIdx = 1;                          // zone / output number (1-based)
+uint8_t mtxStepDb = 1, mtxMaxCutDb = 6, mtxRecMin = 2;
+String mtxAddrCustom = "";                   // advanced: a full address to use instead
+volatile int mtxConn = 0;                    // 0 off, 1 connecting, 2 connected, 3 can't reach
+volatile int mtxBase = -32768, mtxCut = 0;   // starting level (dB x100) and how far it's cut (dB x100)
+volatile int mtxLast = -32768;               // last level the meter set or read
+char mtxMsg[140] = "Off";
+void mtxSetMsg(const String& m) { strlcpy(mtxMsg, m.c_str(), sizeof(mtxMsg)); }
+volatile bool mtxTestReq = false, mtxReconnect = false;
+void mtxNotify(const String& l);
+String mtxAddr() {
+  if (mtxAddrCustom.length()) return mtxAddrCustom;
+  int x = constrain(mtxIdx, 1, mtxModel ? 16 : 8) - 1;
+  if (mtxTarget == 0) return "MTX:mem_512/60002/0/" + String(x) + "/0/0/0";
+  return "MTX:mem_512/" + String(mtxModel ? 20024 : 20017) + "/0/" + String(x) + "/0/0/0";
+}
+String mtxWhat() { return String(mtxTarget ? "Output " : "Zone ") + mtxIdx; }
+String mtxReadLine(NetworkClient& c, uint32_t ms) {          // one line from the MTX (LF-terminated), "" on timeout
+  String l; uint32_t t0 = millis();
+  while (millis() - t0 < ms) {
+    while (c.available()) { char ch = c.read(); if (ch == '\n') return l; if (ch != '\r' && l.length() < 300) l += ch; }
+    if (!c.connected()) break; delay(5);
+  }
+  return "";
+}
+bool mtxCmd(NetworkClient& c, const String& cmd, String& reply, const char* expect) {   // send, wait for "OK <expect>..."
+  c.print(cmd + "\n");
+  uint32_t t0 = millis();
+  while (millis() - t0 < 1500) {
+    String l = mtxReadLine(c, 300);
+    if (!l.length()) continue;
+    if (l.startsWith("OK") && l.indexOf(expect) >= 0) { reply = l; return true; }
+    if (l.startsWith("ERROR")) { reply = l; return false; }
+    if (l.startsWith("NOTIFY")) mtxNotify(l);
+  }
+  reply = ""; return false;
+}
+int mtxParseLevel(const String& l) {        // "... 0 0 -1000 ..." : the number after the address and "0 0"
+  String a = mtxAddr(); int p = l.indexOf(a); if (p < 0) return -32768;
+  String rest = l.substring(p + a.length()); rest.trim();     // "0 0 -1000 \"-10.00\""
+  int s1 = rest.indexOf(' '); int s2 = rest.indexOf(' ', s1 + 1); if (s1 < 0 || s2 < 0) return -32768;
+  String v = rest.substring(s2 + 1); int s3 = v.indexOf(' '); if (s3 > 0) v = v.substring(0, s3);
+  return v.toInt();
+}
+void mtxNotify(const String& l) {           // someone moved our level on the MTX: that's the new starting point
+  if (l.indexOf(mtxAddr()) < 0) return;
+  int v = mtxParseLevel(l); if (v == -32768 || v == mtxLast) return;
+  mtxBase = v; mtxCut = 0; mtxLast = v;
+}
+void mtxTask(void*) {
+  NetworkClient c;
+  uint32_t lastBeat = 0, lastStep = 0, underSince = 0;
+  for (;;) {
+    vTaskDelay(pdMS_TO_TICKS(200));
+    bool want = pluginActive("mtx") && mtxOn && mtxIp.length() && netOnline();
+    if (!want) {
+      if (c.connected()) c.stop();
+      mtxConn = 0; mtxBase = -32768; mtxCut = 0;
+      mtxSetMsg(!pluginActive("mtx") ? "Locked" : !mtxOn ? "Off" : !mtxIp.length() ? "Enter the MTX's IP address" : "Needs the meter on the venue's network (Settings → WiFi)");
+      continue;
+    }
+    if (!c.connected()) {
+      mtxConn = 1; mtxSetMsg("Connecting to " + mtxIp + "…");
+      if (!c.connect(mtxIp.c_str(), 49280, 2000)) { mtxConn = 3; mtxSetMsg("Can't reach the MTX at " + mtxIp); vTaskDelay(pdMS_TO_TICKS(5000)); continue; }
+      String r;
+      if (!mtxCmd(c, "devstatus runmode", r, "devstatus runmode") || r.indexOf("normal") < 0) { c.stop(); mtxConn = 3; mtxSetMsg("MTX not ready (" + r + ")"); vTaskDelay(pdMS_TO_TICKS(5000)); continue; }
+      mtxCmd(c, "scpmode keepalive 5000", r, "scpmode");
+      if (!mtxCmd(c, "get " + mtxAddr() + " 0 0", r, "get")) { c.stop(); mtxConn = 3; mtxSetMsg("MTX didn't accept " + mtxWhat() + (r.length() ? " (" + r + ")" : "")); vTaskDelay(pdMS_TO_TICKS(5000)); continue; }
+      int v = mtxParseLevel(r);
+      mtxBase = v; mtxLast = v; mtxCut = 0; mtxConn = 2; lastBeat = millis(); underSince = 0;
+    }
+    if (mtxReconnect) { mtxReconnect = false; c.stop(); continue; }          // settings changed: start again
+    while (c.available()) { String l = mtxReadLine(c, 50); if (l.startsWith("NOTIFY")) mtxNotify(l); }
+    uint32_t now = millis();
+    if (now - lastBeat > 2000) { c.print("\n"); lastBeat = now; }                 // heartbeat
+    if (mtxTestReq) { mtxTestReq = false; String r; if (mtxCmd(c, "get " + mtxAddr() + " 0 0", r, "get")) { int v = mtxParseLevel(r); if (v != -32768 && mtxCut == 0) { mtxBase = v; mtxLast = v; } } }
+    if (mtxBase <= -13800) { mtxSetMsg("Connected. " + mtxWhat() + " is off (-inf), nothing to turn down"); continue; }
+    int st = limState;                                                            // 0 fine, 1 near, 2 over
+    if (st == 2) underSince = 0; else if (st == 0 && !underSince) underSince = now; else if (st == 1) underSince = 0;
+    int want2 = mtxCut;
+    if (st == 2 && now - lastStep >= 5000 && mtxCut < mtxMaxCutDb * 100) want2 = min(mtxCut + mtxStepDb * 100, mtxMaxCutDb * 100);
+    if (st == 0 && mtxCut > 0 && underSince && now - underSince >= (uint32_t)mtxRecMin * 60000UL && now - lastStep >= 5000) want2 = max(0, mtxCut - mtxStepDb * 100);
+    if (want2 != mtxCut) {
+      int lvl = mtxBase - want2; String r;
+      if (mtxCmd(c, "set " + mtxAddr() + " 0 0 " + String(lvl), r, "set")) { mtxCut = want2; mtxLast = lvl; lastStep = now; }
+    }
+    char b[96]; snprintf(b, sizeof(b), "Connected. %s at %.1f dB%s", mtxWhat().c_str(), (mtxBase - mtxCut) / 100.0f,
+                         mtxCut ? (String(", turned down ") + String(mtxCut / 100.0f, 1) + " dB").c_str() : "");
+    mtxSetMsg(String(b));
+  }
+}
+void mtxLoad() {
+  mtxOn = prefs.getBool("mtxOn", false); mtxIp = prefs.getString("mtxIp", ""); mtxModel = prefs.getUChar("mtxMod", 0);
+  mtxTarget = prefs.getUChar("mtxTgt", 0); mtxIdx = prefs.getUChar("mtxIdx", 1);
+  mtxStepDb = prefs.getUChar("mtxStep", 1); mtxMaxCutDb = prefs.getUChar("mtxMax", 6); mtxRecMin = prefs.getUChar("mtxRec", 2);
+  mtxAddrCustom = prefs.getString("mtxAdr", "");
+}
+void mtxSave() {
+  prefs.putBool("mtxOn", mtxOn); prefs.putString("mtxIp", mtxIp); prefs.putUChar("mtxMod", mtxModel);
+  prefs.putUChar("mtxTgt", mtxTarget); prefs.putUChar("mtxIdx", mtxIdx);
+  prefs.putUChar("mtxStep", mtxStepDb); prefs.putUChar("mtxMax", mtxMaxCutDb); prefs.putUChar("mtxRec", mtxRecMin);
+  prefs.putString("mtxAdr", mtxAddrCustom);
+}
+String pluginsJson() {
+  String s = "\"lid\":\"" + licenceId() + "\",\"plg\":{";
+  for (int i = 0; i < NUM_PLUGINS; i++) { if (i) s += ","; s += "\""; s += PLUGINS[i].id; s += "\":"; s += plugOn[i] ? "true" : "false"; }
+  s += "},\"mtx\":{\"on\":"; s += mtxOn ? "true" : "false";
+  s += ",\"ip\":\"" + jsonEsc(mtxIp) + "\",\"model\":" + String(mtxModel) + ",\"tgt\":" + String(mtxTarget) + ",\"idx\":" + String(mtxIdx);
+  s += ",\"step\":" + String(mtxStepDb) + ",\"max\":" + String(mtxMaxCutDb) + ",\"rec\":" + String(mtxRecMin);
+  s += ",\"adr\":\"" + jsonEsc(mtxAddrCustom) + "\",\"conn\":" + String((int)mtxConn) + ",\"cut\":" + String(mtxCut / 100.0f, 1);
+  s += ",\"msg\":\"" + jsonEsc(mtxMsg) + "\"},";
+  return s;
+}
 bool validTopic(const String& t) {
   if (t.length() < 1 || t.length() > 64) return false;
   for (unsigned i = 0; i < t.length(); i++) { char c = t[i]; if (!(isalnum(c) || c == '-' || c == '_')) return false; }
@@ -10406,6 +10660,7 @@ void setup() {
   if (!validVersion(latestFw)) latestFw = "";
   lockPin = prefs.getString("pin", "");
   termsOk = prefs.getUChar("tcv", 0);
+  pluginsLoad(); mtxLoad();
   if (lockPin.length() && !validPin(lockPin)) lockPin = "";
   factoryCalSet = prefs.getBool("fcalok", false);
   factoryCal = prefs.getFloat("fcal", 0.0f);
@@ -10526,6 +10781,7 @@ void setup() {
   if (rtaInit()) xTaskCreatePinnedToCore(rtaTask, "rta", 4096, NULL, 2, NULL, 0);
   else Serial.println("RTA: not enough memory");
   xTaskCreatePinnedToCore(audioTask, "audio", 6144, NULL, 5, NULL, 1);
+  xTaskCreatePinnedToCore(mtxTask, "mtx", 6144, NULL, 1, NULL, 0);   // Yamaha MTX plugin (idles unless unlocked and on)
   lastActivity = millis();
   String prevFw = prefs.getString("fwv", "");
   if (prevFw != FW_VERSION) { prefs.putString("fwv", FW_VERSION); if (prevFw.length()) toast("Updated", "Now v" FW_VERSION, 4000); }
