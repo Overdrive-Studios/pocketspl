@@ -1,3 +1,4 @@
+New: the phone RTA labels every octave (31, 63, 125, 250, 500, 1k, 2k, 4k, 8k, 16k Hz) with faint guide lines, and the meter screen RTA has a tick at each octave.
 New: RTA line. The phone RTA has Bars, Line and Both views (Line draws a smooth curve so you can see the shape easily), and the meter screen RTA now has a line across the tops of the bars.
 New: WiFi turns itself off when the phone app has not been open for a while (default 10 minutes; change it in Settings > WiFi > WiFi power). Hold the button 3 s to turn it back on. Longer battery life: the processor runs a little slower (you won't notice) and new meters start at normal full brightness (Outdoor is still at the top of the slider).
 New: Outdoor brightness. Slide Brightness all the way up (Settings > General > Display) for a brighter screen in daylight. It uses more battery.

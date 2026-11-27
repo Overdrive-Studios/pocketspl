@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.58"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.59"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -4791,7 +4791,11 @@ const char PAGE[] PROGMEM =
 "  g.font=\"500 11px \"+cvFont(); g.textAlign=\"right\"; g.fillStyle=cv(\"--mute\"); g.strokeStyle=cv(\"--rule\"); g.lineWidth=1;\n"
 "  for(let v=20; v<=100; v+=20){ g.beginPath(); g.moveTo(L,y(v)); g.lineTo(w,y(v)); g.stroke(); g.fillText(v,L-5,y(v)+4); }\n"
 "  g.textAlign=\"center\";\n"
-"  [5,11,17,23,29].forEach(i=>g.fillText(RTA_LBL[i]+(i===5?\" Hz\":\"\"), L+bw*i+bw/2, h-5));\n"
+"  const OCT=[2,5,8,11,14,17,20,23,26,29], OCTL={2:\"31\"};   // a label every octave: 31, 63, 125, 250, 500, 1k, 2k, 4k, 8k, 16k\n"
+"  g.save(); g.strokeStyle=cv(\"--rule\"); g.globalAlpha=.45; OCT.forEach(i=>{ const x=L+bw*i+bw/2; g.beginPath(); g.moveTo(x,T); g.lineTo(x,B); g.stroke(); }); g.restore();\n"
+"  g.font=\"500 \"+(bw<11?10:11)+\"px \"+cvFont();\n"
+"  OCT.forEach(i=>g.fillText(OCTL[i]||RTA_LBL[i], L+bw*i+bw/2, h-5));\n"
+"  g.textAlign=\"right\"; g.fillText(\"Hz\", L-5, h-5); g.textAlign=\"center\";\n"
 "  if(st){ for(const [v,cl] of [[st.amber,cv(\"--amber\")],[st.red,cv(\"--red\")]]){ g.setLineDash([4,4]); g.strokeStyle=cl; g.globalAlpha=.5;\n"
 "    g.beginPath(); g.moveTo(L,y(v)); g.lineTo(w,y(v)); g.stroke(); g.setLineDash([]); g.globalAlpha=1; } }\n"
 "  if(!rtaShown||!st) return;\n"
@@ -9520,6 +9524,7 @@ void clRta(uint32_t now, float fastDb) {
       px = xx; py = yy;
     }
   }
+  for (int b = 2; b < RTA_BANDS; b += 3) canvas.drawFastVLine(x0 + b * 4 + 1, bottom + 1, 3, CL_TEXT3);   // a tick every octave
   const int lab[] = {5, 11, 17, 23, 29};                        // 63, 250, 1k, 4k, 16k
   for (int i = 0; i < 5; i++) {
     int cx = x0 + lab[i] * 4 + 1, w = textW(FT9, RTA_LABEL[lab[i]]);
@@ -9862,6 +9867,7 @@ void drawRta(uint32_t now, float fastDb) {
     }
   }
   canvas.setFont(L.small); canvas.setTextSize(1); canvas.setTextColor(C_DIM);
+  for (int b = 2; b < RTA_BANDS; b += 3) canvas.drawFastVLine(x0 + b * 4 + 1, bottom + 1, 2, C_DIM);   // a tick every octave
   const int lab[] = {5, 11, 17, 23, 29};                        // 63, 250, 1k, 4k, 16k
   for (int i = 0; i < 5; i++) {
     int cx = x0 + lab[i] * 4 + 1;
