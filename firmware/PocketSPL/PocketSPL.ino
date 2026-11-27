@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.54"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.55"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3300,9 +3300,13 @@ void textRight(const char* s, int right, int baseline) {
 
 void pushCanvas();                         // sends the whole frame (defined further down)
 
+// 1..15 = normal (master contrast). 16 = Outdoor: master at full and the red/green/blue drive raised
+// as far as it goes (same colour balance as normal), about a third brighter than 15. Uses more battery.
 void setBrightness(uint8_t level) {
   uint8_t v = level > 15 ? 15 : level;
-  oled.sendCommand(0xC7, &v, 1);   // SSD1351 master contrast
+  static const uint8_t abcNorm[3] = {0xC8, 0x80, 0xC8}, abcOut[3] = {0xFF, 0xA3, 0xFF};
+  oled.sendCommand(0xC1, level >= 16 ? abcOut : abcNorm, 3);   // SSD1351 colour contrast A/B/C
+  oled.sendCommand(0xC7, &v, 1);                                // SSD1351 master contrast
 }
 
 // ---------------- Audio state (written by the audio task) ----------------
@@ -4442,9 +4446,10 @@ const char PAGE[] PROGMEM =
 "  <div class=\"card\" data-tab=\"settings\" data-sub=\"general\" data-page=\"display\">\n"
 "    <h2>Meter screen</h2>\n"
 "    <div data-lock>\n"
-"    <div class=\"row\"><label>Brightness</label><input type=\"range\" id=\"bright\" min=\"1\" max=\"15\" step=\"1\"></div>\n"
+"    <div class=\"row\"><label>Brightness</label><input type=\"range\" id=\"bright\" min=\"1\" max=\"16\" step=\"1\"></div>\n"
 "    <div class=\"row\"><label>Amber from</label><div class=\"step\"><button data-k=\"amber\" data-d=\"-1\">−</button><output id=\"amber\">--</output><button data-k=\"amber\" data-d=\"1\">+</button></div></div>\n"
 "    <div class=\"row\"><label>Red from</label><div class=\"step\"><button data-k=\"red\" data-d=\"-1\">−</button><output id=\"red\">--</output><button data-k=\"red\" data-d=\"1\">+</button></div></div>\n"
+"    <p class=\"note\">Brightness all the way up is Outdoor: about a third brighter, for daylight. It uses more battery.</p>\n"
 "    <p class=\"note\">The level turns amber and then red at these levels, on the meter and the phone.</p>\n"
 "    </div>\n"
 "  </div>\n"
@@ -5042,7 +5047,7 @@ const char PAGE[] PROGMEM =
 "document.querySelectorAll(\"#segR button\").forEach(b=>b.onclick=()=>set(\"r=\"+b.dataset.v, R[b.dataset.v]+(b.dataset.v===\"2\"?\" (Leq restarted)\":\"\")));\n"
 "document.querySelectorAll(\"#segScr button\").forEach(b=>b.onclick=()=>{ const v=b.dataset.v===\"lvl\"?lastResp:+b.dataset.v; set(\"r=\"+v, v===3?\"Meter shows the RTA\":v===4?\"Meter shows the Gig screen\":\"Meter shows the level\"); });\n"
 "$(\"reset\").onclick=()=>{ hist=[]; set(\"reset=1\",\"MAX and Leq reset\"); };\n"
-"$(\"bright\").onchange=e=>set(\"bright=\"+e.target.value,\"Brightness \"+e.target.value);\n"
+"$(\"bright\").onchange=e=>set(\"bright=\"+e.target.value,e.target.value==16?\"Brightness: Outdoor\":\"Brightness \"+e.target.value);\n"
 "document.querySelectorAll(\"[data-k]\").forEach(b=>b.onclick=()=>{ if(!st) return; const k=b.dataset.k; set(k+\"=\"+(st[k]+(+b.dataset.d)), (k===\"amber\"?\"Amber\":\"Red\")+\" from \"+(st[k]+(+b.dataset.d))+\" dB\"); });\n"
 "document.querySelectorAll(\"[data-c]\").forEach(b=>b.onclick=()=>{ if(!st) return; const v=Math.round((st.cal+(+b.dataset.c))*10)/10; set(\"cal=\"+v,\"Offset \"+(v>=0?\"+\":\"\")+v.toFixed(1)+\" dB\"); });\n"
 "$(\"cal94\").onclick=()=>{ if(confirm(\"Fit the 94 dB / 1 kHz calibrator over the mic grille, switch it on, then press OK. Takes 7 seconds.\")) set(\"cal94=1\",\"Calibrating…\"); };\n"
@@ -6078,7 +6083,7 @@ void handleSet() {
   }
   if (wantsProtected && !pinOk()) { lastDenied = true; toast("Locked", "Unlock on the phone", 1500); sendState(); return; }
 
-  if (server.hasArg("bright")) { brightness = constrain(server.arg("bright").toInt(), 1, 15); setBrightness(brightness); savePrefs(); }
+  if (server.hasArg("bright")) { brightness = constrain(server.arg("bright").toInt(), 1, 16); setBrightness(brightness); savePrefs(); }
   if (server.hasArg("amber")) { amberFrom = constrain(server.arg("amber").toInt(), 50, 120); if (redFrom <= amberFrom) redFrom = amberFrom + 1; savePrefs(); }
   if (server.hasArg("red"))   { redFrom = constrain(server.arg("red").toInt(), 51, 125); if (amberFrom >= redFrom) amberFrom = redFrom - 1; savePrefs(); }
   if (server.hasArg("cal"))   { calOffset = constrain(server.arg("cal").toFloat(), -20.0f, 20.0f); savePrefs(); }
@@ -10321,7 +10326,7 @@ void setup() {
   amberFrom = prefs.getUChar("amb", DEFAULT_AMBER);
   redFrom = prefs.getUChar("red", DEFAULT_RED);
   if (redFrom <= amberFrom) { amberFrom = DEFAULT_AMBER; redFrom = DEFAULT_RED; }
-  brightness = constrain(prefs.getUChar("bri", DEFAULT_BRIGHTNESS), 1, 15);
+  brightness = constrain(prefs.getUChar("bri", DEFAULT_BRIGHTNESS), 1, 16);
   wifiOn = prefs.getBool("wifi", true);
   limOn = prefs.getBool("limOn", false);
   limDb = constrain(prefs.getUChar("limDb", 100), 60, 125);

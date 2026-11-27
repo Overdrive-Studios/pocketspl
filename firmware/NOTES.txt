@@ -1,3 +1,4 @@
+New: Outdoor brightness. Slide Brightness all the way up (Settings > General > Display) for a brighter screen in daylight. It uses more battery.
 Changed: the heat warning and automatic shut-down have been removed. The inside temperature now shows in Settings > General > About and help.
 Changed: a start-up logo now fills the whole screen (zoomed to fit edge to edge). Upload your logo again to see it.
 Updated: terms of use now include the full 12-month warranty and contact details. You will be asked to accept the new terms once.
