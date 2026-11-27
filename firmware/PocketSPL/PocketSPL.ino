@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.57"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.58"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3929,6 +3929,7 @@ const char PAGE[] PROGMEM =
 ".rtac{aspect-ratio:900/560}\n"
 "@media (orientation:portrait){.rtac{aspect-ratio:auto;width:100%;height:max(260px,calc(100dvh - 250px - env(safe-area-inset-bottom)))}}\n"
 ".rtahead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}\n"
+".rtactl{display:flex;gap:8px;align-items:center}.rtactl .seg button{padding:5px 9px;font-size:13px}\n"
 ".rtahead h2{margin:0}\n"
 ".rollgrid{display:grid;grid-template-columns:52px repeat(3,1fr);margin:4px 0 4px;border-bottom:1px solid var(--rule)}\n"
 ".rollgrid>*{display:flex;align-items:center;justify-content:flex-end;min-height:46px;border-top:1px solid var(--rule)}\n"
@@ -4337,7 +4338,7 @@ const char PAGE[] PROGMEM =
 "  </div>\n"
 "\n"
 "  <div class=\"card\" data-tab=\"rta\">\n"
-"    <div class=\"rtahead\"><h2 id=\"rtaTitle\">RTA</h2><button class=\"btn small\" id=\"freeze\">Freeze</button></div>\n"
+"    <div class=\"rtahead\"><h2 id=\"rtaTitle\">RTA</h2><div class=\"rtactl\"><div class=\"seg\" id=\"segRtaV\"><button data-v=\"0\">Bars</button><button data-v=\"1\">Line</button><button data-v=\"2\">Both</button></div><button class=\"btn small\" id=\"freeze\">Freeze</button></div></div>\n"
 "    <canvas id=\"rta\" width=\"900\" height=\"560\" class=\"rtac\"></canvas>\n"
 "  </div>\n"
 "\n"
@@ -4764,6 +4765,10 @@ const char PAGE[] PROGMEM =
 "\n"
 "const RTA_LBL=[\"20\",\"25\",\"31.5\",\"40\",\"50\",\"63\",\"80\",\"100\",\"125\",\"160\",\"200\",\"250\",\"315\",\"400\",\"500\",\"630\",\"800\",\"1k\",\"1.25k\",\"1.6k\",\"2k\",\"2.5k\",\"3.15k\",\"4k\",\"5k\",\"6.3k\",\"8k\",\"10k\",\"12.5k\",\"16k\",\"20k\"];\n"
 "let rtaShown=null, rtaPeak=[], rtaPeakT=[], frozen=false, rtaVis=[], rtaAt=0;\n"
+"let rtaView=2; try{ const v=localStorage.getItem(\"rtaView\"); if(v!==null) rtaView=+v; }catch(e){}   // 0 bars, 1 line, 2 both\n"
+"function rtaViewUi(){ document.querySelectorAll(\"#segRtaV button\").forEach(b=>b.classList.toggle(\"on\",+b.dataset.v===rtaView)); }\n"
+"document.querySelectorAll(\"#segRtaV button\").forEach(b=>b.onclick=()=>{ rtaView=+b.dataset.v; try{ localStorage.setItem(\"rtaView\",rtaView); }catch(e){} rtaViewUi(); drawRta(); });\n"
+"rtaViewUi();\n"
 "function drawRta(){\n"
 "  const c=$(\"rta\"); if(!c) return;\n"
 "  const t=$(\"rtaTitle\"), tt=\"RTA in \"+(st?W[st.w]:\"dB\"); if(t.textContent!==tt) t.textContent=tt;\n"
@@ -4794,11 +4799,18 @@ const char PAGE[] PROGMEM =
 "  const grad=g.createLinearGradient(0,B,0,T), fa=fy(st.amber), fr=Math.max(fa,fy(st.red)), Gc=cv(\"--green\"), Ac=cv(\"--amber\"), Rc=cv(\"--red\");\n"
 "  grad.addColorStop(0,Gc); grad.addColorStop(fa,Gc); grad.addColorStop(fa,Ac); grad.addColorStop(fr,Ac); grad.addColorStop(fr,Rc); grad.addColorStop(1,Rc);   // like a hardware analyser: each bar turns amber then red as it climbs\n"
 
-"  for(let i=0;i<n;i++){ const v=rtaShown[i]; if(v===undefined||v===null) continue;\n"
+"  if(rtaView!==1) for(let i=0;i<n;i++){ const v=rtaShown[i]; if(v===undefined||v===null) continue;\n"
 "    const x=L+bw*i+gap/2, ww=bw-gap, top=y(v), hh=B-top;\n"
-"    g.fillStyle = grad;\n"
+"    g.fillStyle = grad; if(rtaView===2) g.globalAlpha=.55;\n"
 "    if(hh>0){ g.beginPath(); if(g.roundRect) g.roundRect(x,top,ww,hh,[rr,rr,0,0]); else g.rect(x,top,ww,hh); g.fill(); }\n"
+"    g.globalAlpha=1;\n"
 "    if(rtaPeak[i]!==undefined){ g.fillStyle=cv(\"--ink\"); g.fillRect(x, y(rtaPeak[i])-1.5, ww, 2); } }\n"
+"  if(rtaView!==0){ const pts=[]; for(let i=0;i<n;i++){ const v=rtaShown[i]; if(v!==undefined&&v!==null) pts.push([L+bw*i+bw/2, y(v)]); }\n"
+"    if(pts.length>1){ const path=()=>{ g.beginPath(); g.moveTo(pts[0][0],pts[0][1]);\n"
+"        for(let k=1;k<pts.length-1;k++){ const mx=(pts[k][0]+pts[k+1][0])/2, my=(pts[k][1]+pts[k+1][1])/2; g.quadraticCurveTo(pts[k][0],pts[k][1],mx,my); }\n"
+"        g.lineTo(pts[pts.length-1][0],pts[pts.length-1][1]); };\n"
+"      if(rtaView===1){ path(); g.lineTo(pts[pts.length-1][0],B); g.lineTo(pts[0][0],B); g.closePath(); g.globalAlpha=.25; g.fillStyle=grad; g.fill(); g.globalAlpha=1; }   // soft fill under the line\n"
+"      path(); g.lineJoin=\"round\"; g.lineCap=\"round\"; g.lineWidth=3; g.strokeStyle=cv(\"--ink\"); g.stroke(); g.lineWidth=1; } }\n"
 "}\n"
 "/* ---- gig mode ---- */\n"
 "const WIN=[\"1 min\",\"5 min\",\"15 min\"];\n"
@@ -9498,6 +9510,16 @@ void clRta(uint32_t now, float fastDb) {
     int h = (int)((constrain(d, lo, hi) - lo) / (hi - lo) * (bottom - top) + 0.5f);
     if (h > 0) fillRRAA(x, bottom - h, 3, h + 1, 1, levelColourSmooth(d));
   }
+  if (!warm && rtaReady) {                                     // line joining the bar tops: the shape at a glance
+    int px = -1, py = 0;
+    for (int b = 0; b < RTA_BANDS; b++) {
+      float d = rtaBandDb(b);
+      int yy = bottom - (int)((constrain(d, lo, hi) - lo) / (hi - lo) * (bottom - top) + 0.5f);
+      int xx = x0 + b * 4 + 1;
+      if (px >= 0) { canvas.drawLine(px, py, xx, yy, CL_TEXT); canvas.drawLine(px, py - 1, xx, yy - 1, CL_TEXT); }
+      px = xx; py = yy;
+    }
+  }
   const int lab[] = {5, 11, 17, 23, 29};                        // 63, 250, 1k, 4k, 16k
   for (int i = 0; i < 5; i++) {
     int cx = x0 + lab[i] * 4 + 1, w = textW(FT9, RTA_LABEL[lab[i]]);
@@ -9828,6 +9850,16 @@ void drawRta(uint32_t now, float fastDb) {
     float d = rtaBandDb(b);
     int h = (int)((constrain(d, lo, hi) - lo) / (hi - lo) * (bottom - top));
     if (h > 0) canvas.fillRect(x, bottom - h, 3, h, levelColour(d));
+  }
+  if (!warm && rtaReady) {                                     // line joining the bar tops
+    int px = -1, py = 0;
+    for (int b = 0; b < RTA_BANDS; b++) {
+      float d = rtaBandDb(b);
+      int yy = bottom - (int)((constrain(d, lo, hi) - lo) / (hi - lo) * (bottom - top));
+      int xx = x0 + b * 4 + 1;
+      if (px >= 0) { canvas.drawLine(px, py, xx, yy, C_TEXT); canvas.drawLine(px, py - 1, xx, yy - 1, C_TEXT); }
+      px = xx; py = yy;
+    }
   }
   canvas.setFont(L.small); canvas.setTextSize(1); canvas.setTextColor(C_DIM);
   const int lab[] = {5, 11, 17, 23, 29};                        // 63, 250, 1k, 4k, 16k
