@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.59"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.60"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -4786,7 +4786,7 @@ const char PAGE[] PROGMEM =
 "      else if(now-rtaPeakT[i]>1500) rtaPeak[i]=Math.max(rtaVis[i], rtaPeak[i]-dt*0.02); }\n"
 "    rtaShown=rtaVis;\n"
 "  }\n"
-"  const L=30, B=h-20, T=6, lo=20, hi=110, n=31, bw=(w-L-2)/n, gap=Math.max(1,Math.min(3,bw*0.18));\n"
+"  const n=31, L=30, bw=(w-L-2)/n, allFlat=bw>=24, B=h-(allFlat?20:36), T=6, lo=20, hi=110, gap=Math.max(1,Math.min(3,bw*0.18));   // every band labelled: flat if there's room, else turned on their side\n"
 "  const y=v=>B-(Math.max(lo,Math.min(hi,v))-lo)/(hi-lo)*(B-T);\n"
 "  g.font=\"500 11px \"+cvFont(); g.textAlign=\"right\"; g.fillStyle=cv(\"--mute\"); g.strokeStyle=cv(\"--rule\"); g.lineWidth=1;\n"
 "  for(let v=20; v<=100; v+=20){ g.beginPath(); g.moveTo(L,y(v)); g.lineTo(w,y(v)); g.stroke(); g.fillText(v,L-5,y(v)+4); }\n"
@@ -4794,8 +4794,12 @@ const char PAGE[] PROGMEM =
 "  const OCT=[2,5,8,11,14,17,20,23,26,29], OCTL={2:\"31\"};   // a label every octave: 31, 63, 125, 250, 500, 1k, 2k, 4k, 8k, 16k\n"
 "  g.save(); g.strokeStyle=cv(\"--rule\"); g.globalAlpha=.45; OCT.forEach(i=>{ const x=L+bw*i+bw/2; g.beginPath(); g.moveTo(x,T); g.lineTo(x,B); g.stroke(); }); g.restore();\n"
 "  g.font=\"500 \"+(bw<11?10:11)+\"px \"+cvFont();\n"
-"  OCT.forEach(i=>g.fillText(OCTL[i]||RTA_LBL[i], L+bw*i+bw/2, h-5));\n"
-"  g.textAlign=\"right\"; g.fillText(\"Hz\", L-5, h-5); g.textAlign=\"center\";\n"
+"  const ink=cv(\"--ink\"), mute=cv(\"--mute\");\n"
+"  for(let i=0;i<n;i++){ const x=L+bw*i+bw/2, oct=OCT.includes(i), t=RTA_LBL[i];\n"
+"    g.fillStyle=oct?ink:mute; g.font=(oct?\"600 \":\"500 \")+(allFlat?11:10)+\"px \"+cvFont();\n"
+"    if(allFlat){ g.textAlign=\"center\"; g.fillText(t, x, h-5); }\n"
+"    else { g.save(); g.translate(x+3.5, B+5); g.rotate(-Math.PI/2); g.textAlign=\"right\"; g.fillText(t,0,0); g.restore(); } }\n"
+"  g.fillStyle=mute; g.font=\"500 11px \"+cvFont(); g.textAlign=\"right\"; g.fillText(\"Hz\", L-5, h-5); g.textAlign=\"center\";\n"
 "  if(st){ for(const [v,cl] of [[st.amber,cv(\"--amber\")],[st.red,cv(\"--red\")]]){ g.setLineDash([4,4]); g.strokeStyle=cl; g.globalAlpha=.5;\n"
 "    g.beginPath(); g.moveTo(L,y(v)); g.lineTo(w,y(v)); g.stroke(); g.setLineDash([]); g.globalAlpha=1; } }\n"
 "  if(!rtaShown||!st) return;\n"
