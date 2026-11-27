@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.61"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.62"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3930,6 +3930,7 @@ const char PAGE[] PROGMEM =
 "@media (orientation:portrait){.rtac{aspect-ratio:auto;width:100%;height:max(260px,calc(100dvh - 250px - env(safe-area-inset-bottom)))}}\n"
 ".rtahead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}\n"
 ".pill{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.3px;padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:middle;background:var(--rule);color:var(--mute)}.pill.on{background:var(--green);color:#fff}\n"
+".plg{border-top:1px solid var(--rule);padding-top:4px;margin-top:10px}.seg.wrap{flex-wrap:wrap}\n"
 "details.adv{margin:12px 0}details.adv summary{cursor:pointer;color:var(--mute);font-size:14px}\n"
 ".rtactl{display:flex;gap:8px;align-items:center}.rtactl .seg button{padding:5px 9px;font-size:13px}\n"
 ".rtahead h2{margin:0}\n"
@@ -4500,11 +4501,8 @@ const char PAGE[] PROGMEM =
 "    <div class=\"row\"><label>Licence ID</label><output id=\"lidVal\">--</output></div>\n"
 "    <div class=\"row\"><button class=\"btn\" id=\"lidCopy\" type=\"button\">Copy licence ID</button></div>\n"
 "    <p class=\"note\">Give this ID when you buy a plugin. To buy one, contact Overdrive Music Studio: overdrivestudios21@gmail.com or 0418 587 668.</p>\n"
-"    <h3>Yamaha MTX control <span class=\"pill\" id=\"mtxBadge\">Locked</span></h3>\n"
-"    <p class=\"note\">Works with a Yamaha MTX3 or MTX5-D on the venue's network. When the room goes over your limit, the meter turns a zone or output down a little at a time, and brings it back up once it's been back under for a while. It never turns anything up past where it started, and never cuts more than you allow.</p>\n"
-"    <div id=\"mtxBuy\">\n"
-"      <div class=\"pinrow\"><input id=\"licCode\" placeholder=\"Paste your licence code\" autocomplete=\"off\" autocapitalize=\"off\" spellcheck=\"false\" aria-label=\"Licence code\"><button class=\"btn\" id=\"licOk\" type=\"button\">Unlock</button></div>\n"
-"    </div>\n"
+"    <div id=\"plgList\"></div>\n"
+"    <h3 id=\"mtxHead\" hidden>Yamaha MTX settings</h3>\n"
 "    <div id=\"mtxSet\" hidden data-lock>\n"
 "      <p class=\"note\" id=\"mtxMsg\"></p>\n"
 "      <label class=\"check\"><input type=\"checkbox\" id=\"mtxOn\"> Control the MTX</label>\n"
@@ -4521,6 +4519,32 @@ const char PAGE[] PROGMEM =
 "        <div class=\"pinrow\"><input id=\"mtxAdr\" placeholder=\"MTX:mem_512/60002/0/0/0/0/0\" autocomplete=\"off\" autocapitalize=\"off\" spellcheck=\"false\" aria-label=\"MTX address\"><button class=\"btn\" id=\"mtxAdrSave\" type=\"button\">Save</button></div>\n"
 "      </details>\n"
 "      <p class=\"note\">Uses the limit and average from <b>Limit alarm</b>. The meter and the MTX must be on the same network (Settings → WiFi), and the MTX's remote control must be allowed in ProVisionaire.</p>\n"
+"    </div>\n"
+"    <h3 id=\"mixHead\" hidden>Mixer control settings</h3>\n"
+"    <div id=\"mixSet\" hidden data-lock>\n"
+"      <p class=\"note\" id=\"mixMsg\"></p>\n"
+"      <label class=\"check\"><input type=\"checkbox\" id=\"mixOn\"> Control the desk</label>\n"
+"      <div class=\"ctl stack\"><span>Desk</span><div class=\"seg wrap\" id=\"segMixKind\"></div></div>\n"
+"      <div class=\"ctl stack\"><span id=\"mixIpLbl\">Desk IP address</span><div class=\"pinrow\"><input id=\"mixIp\" inputmode=\"decimal\" placeholder=\"192.168.0.20\" autocomplete=\"off\" aria-label=\"Desk IP address\"><button class=\"btn\" id=\"mixIpSave\" type=\"button\">Save</button></div></div>\n"
+"      <div id=\"mixQsys\" hidden>\n"
+"        <div class=\"ctl stack\"><span>Named control (a gain in your design)</span><div class=\"pinrow\"><input id=\"mixName\" placeholder=\"PocketSPL\" autocomplete=\"off\" autocapitalize=\"off\" spellcheck=\"false\" aria-label=\"Named control\"><button class=\"btn\" id=\"mixNameSave\" type=\"button\">Save</button></div></div>\n"
+"        <p class=\"note\">In Q-SYS Designer, add the gain control you want turned down to Named Controls with this name. If the Core needs a login for external control, enter it below.</p>\n"
+"        <div class=\"pinrow\"><input id=\"mixUser\" placeholder=\"User (if needed)\" autocomplete=\"off\" autocapitalize=\"off\" aria-label=\"Q-SYS user\"><input id=\"mixPin\" placeholder=\"PIN\" inputmode=\"numeric\" autocomplete=\"off\" aria-label=\"Q-SYS PIN\"><button class=\"btn\" id=\"mixLoginSave\" type=\"button\">Save</button></div>\n"
+"      </div>\n"
+"      <div id=\"mixTgtWrap\">\n"
+"        <div class=\"ctl stack\"><span>Turn down</span><div class=\"seg\" id=\"segMixTgt\"></div></div>\n"
+"        <div class=\"ctl stack\" id=\"mixIdxWrap\"><span>Number</span><div class=\"seg wrap\" id=\"segMixIdx\"></div></div>\n"
+"      </div>\n"
+"      <div class=\"ctl stack\" id=\"mixChWrap\" hidden><span>Desk MIDI channel</span><div class=\"seg wrap\" id=\"segMixCh\"></div></div>\n"
+"      <div class=\"ctl stack\"><span>Each step</span><div class=\"seg\" id=\"segMixStep\"><button type=\"button\" data-v=\"1\">1 dB</button><button type=\"button\" data-v=\"2\">2 dB</button><button type=\"button\" data-v=\"3\">3 dB</button></div></div>\n"
+"      <div class=\"ctl stack\"><span>Turn down no more than</span><div class=\"seg\" id=\"segMixMax\"><button type=\"button\" data-v=\"3\">3 dB</button><button type=\"button\" data-v=\"6\">6 dB</button><button type=\"button\" data-v=\"10\">10 dB</button><button type=\"button\" data-v=\"15\">15 dB</button></div></div>\n"
+"      <div class=\"ctl stack\"><span>Bring it back up after it's been under for</span><div class=\"seg\" id=\"segMixRec\"><button type=\"button\" data-v=\"1\">1 min</button><button type=\"button\" data-v=\"2\">2 min</button><button type=\"button\" data-v=\"5\">5 min</button><button type=\"button\" data-v=\"10\">10 min</button></div></div>\n"
+"      <div class=\"row\"><button class=\"btn\" id=\"mixTest\" type=\"button\">Check the connection</button></div>\n"
+"      <details class=\"adv\" id=\"mixAdv\" hidden><summary>Advanced</summary>\n"
+"        <p class=\"note\">Only if you want a different fader. Leave empty to use the one above.</p>\n"
+"        <div class=\"pinrow\"><input id=\"mixAdr\" placeholder=\"/main/st/mix/fader\" autocomplete=\"off\" autocapitalize=\"off\" spellcheck=\"false\" aria-label=\"OSC address\"><button class=\"btn\" id=\"mixAdrSave\" type=\"button\">Save</button></div>\n"
+"      </details>\n"
+"      <p class=\"note\" id=\"mixHelp\"></p>\n"
 "    </div>\n"
 "  </div>\n"
 "\n"
@@ -4757,21 +4781,61 @@ const char PAGE[] PROGMEM =
 "$(\"tcClose\").onclick=()=>{ $(\"tcGate\").hidden=true; document.body.classList.remove(\"gated\"); };\n"
 "\n"
 "/* ---- plugins ---- */\n"
-"function renderPlugins(){ if(!st||!st.plg) return; const on=!!st.plg.mtx, m=st.mtx||{};\n"
-"  $(\"lidVal\").textContent=st.lid||\"--\"; $(\"mtxBadge\").textContent=on?\"Active\":\"Locked\"; $(\"mtxBadge\").classList.toggle(\"on\",on);\n"
-"  $(\"mtxBuy\").hidden=on; $(\"mtxSet\").hidden=!on; const sp=$(\"sum_plugins\"); if(sp) sp.textContent=on?(m.on?\"MTX on\":\"MTX off\"):\"\";\n"
-"  if(!on) return;\n"
-"  $(\"mtxMsg\").textContent=m.msg||\"\"; if(document.activeElement!==$(\"mtxOn\")) $(\"mtxOn\").checked=!!m.on;\n"
-"  if(document.activeElement!==$(\"mtxIp\")) $(\"mtxIp\").value=m.ip||\"\"; if(document.activeElement!==$(\"mtxAdr\")) $(\"mtxAdr\").value=m.adr||\"\";\n"
-"  const n=m.model?16:8, seg=$(\"segMtxIdx\"); if(seg.childElementCount!==n){ seg.innerHTML=\"\"; for(let i=1;i<=n;i++){ const b=document.createElement(\"button\"); b.type=\"button\"; b.dataset.v=i; b.textContent=i; b.onclick=()=>set(\"mtxidx=\"+i,(m.tgt?\"Output \":\"Zone \")+i); seg.appendChild(b); } }\n"
-"  [[\"segMtxModel\",m.model],[\"segMtxTgt\",m.tgt],[\"segMtxIdx\",m.idx],[\"segMtxStep\",m.step],[\"segMtxMax\",m.max],[\"segMtxRec\",m.rec]].forEach(([id,v])=>document.querySelectorAll(\"#\"+id+\" button\").forEach(b=>b.classList.toggle(\"on\",+b.dataset.v===v)));\n"
+"const PLG=[{id:\"mtx\",n:\"Yamaha MTX control\",d:\"Turns a zone or output on a Yamaha MTX3 or MTX5-D down a little at a time when the room goes over your limit, and back up once it settles.\"},\n"
+"  {id:\"x32\",n:\"Behringer / Midas control\",d:\"X32, M32, X-Air and MR desks. Turns the main LR, a DCA, bus or matrix down when it's over the limit.\"},\n"
+"  {id:\"sq\",n:\"Allen & Heath SQ control\",d:\"SQ-5, SQ-6 and SQ-7. Turns the LR, a DCA, aux or matrix down when it's over the limit.\"},\n"
+"  {id:\"qu\",n:\"Allen & Heath Qu control\",d:\"Qu desks. Turns the main LR or a DCA down when it's over the limit.\"},\n"
+"  {id:\"dlive\",n:\"Allen & Heath dLive control\",d:\"dLive MixRack or surface. Turns a main or a DCA down when it's over the limit.\"},\n"
+"  {id:\"qsys\",n:\"Q-SYS control\",d:\"Any Q-SYS Core. Turns down a gain you name in your design when it's over the limit.\"}];\n"
+"const MIXK=[[\"x32\",\"X32 / M32\"],[\"x32\",\"X-Air / MR\"],[\"sq\",\"SQ\"],[\"qu\",\"Qu\"],[\"dlive\",\"dLive\"],[\"qsys\",\"Q-SYS\"]];\n"
+"function plgListUi(){ const box=$(\"plgList\"); if(box.childElementCount) return;\n"
+"  PLG.forEach(p=>{ const d=document.createElement(\"div\"); d.className=\"plg\"; d.innerHTML=\"<h3>\"+p.n+\" <span class='pill' id='pb_\"+p.id+\"'>Locked</span></h3><p class='note'>\"+p.d+\"</p>\"+\n"
+"      \"<div class='pinrow' id='pu_\"+p.id+\"'><input placeholder='Paste your licence code' autocomplete='off' autocapitalize='off' spellcheck='false' aria-label='Licence code for \"+p.n+\"'><button class='btn' type='button'>Unlock</button></div>\";\n"
+"    const inp=d.querySelector(\"input\"); d.querySelector(\"button\").onclick=async()=>{ const code=inp.value.trim(); if(!code){ toast(\"Paste the licence code first\"); return; }\n"
+"      try{ const r=await fetch(\"/api/set?plg=\"+p.id+\"&lic=\"+encodeURIComponent(code),{cache:\"no-store\"});\n"
+"        if(!r.ok){ toast(await r.text()||\"That code isn't valid for this meter\"); return; }\n"
+"        st=await r.json(); inp.value=\"\"; render(); toast(p.n+\" unlocked\"); }catch(e){ toast(\"Not connected\"); } };\n"
+"    box.appendChild(d); });\n"
+"}\n"
+"plgListUi();\n"
+"function segFill(id,list,cur,onPick){ const seg=$(id), key=list.map(x=>x[0]+\":\"+x[1]).join(\"|\"); if(seg.dataset.k!==key){ seg.dataset.k=key; seg.innerHTML=\"\";\n"
+"    list.forEach(([v,t])=>{ const b=document.createElement(\"button\"); b.type=\"button\"; b.dataset.v=v; b.textContent=t; b.onclick=()=>onPick(v,t); seg.appendChild(b); }); }\n"
+"  seg.querySelectorAll(\"button\").forEach(b=>b.classList.toggle(\"on\",+b.dataset.v===cur)); }\n"
+"function renderPlugins(){ if(!st||!st.plg) return; const P=st.plg;\n"
+"  $(\"lidVal\").textContent=st.lid||\"--\";\n"
+"  let n=0; PLG.forEach(p=>{ const on=!!P[p.id]; if(on) n++; const b=$(\"pb_\"+p.id); if(b){ b.textContent=on?\"Active\":\"Locked\"; b.classList.toggle(\"on\",on); } const u=$(\"pu_\"+p.id); if(u) u.hidden=on; });\n"
+"  const sp=$(\"sum_plugins\"); if(sp) sp.textContent=n?n+\" active\":\"\";\n"
+"  const m=st.mtx||{}, mtxOn=!!P.mtx; $(\"mtxHead\").hidden=!mtxOn; $(\"mtxSet\").hidden=!mtxOn;\n"
+"  if(mtxOn){ $(\"mtxMsg\").textContent=m.msg||\"\"; if(document.activeElement!==$(\"mtxOn\")) $(\"mtxOn\").checked=!!m.on;\n"
+"    if(document.activeElement!==$(\"mtxIp\")) $(\"mtxIp\").value=m.ip||\"\"; if(document.activeElement!==$(\"mtxAdr\")) $(\"mtxAdr\").value=m.adr||\"\";\n"
+"    const nn=m.model?16:8; segFill(\"segMtxIdx\",Array.from({length:nn},(_,i)=>[i+1,String(i+1)]),m.idx,v=>set(\"mtxidx=\"+v,(m.tgt?\"Output \":\"Zone \")+v));\n"
+"    [[\"segMtxModel\",m.model],[\"segMtxTgt\",m.tgt],[\"segMtxStep\",m.step],[\"segMtxMax\",m.max],[\"segMtxRec\",m.rec]].forEach(([id,v])=>document.querySelectorAll(\"#\"+id+\" button\").forEach(b=>b.classList.toggle(\"on\",+b.dataset.v===v))); }\n"
+"  const x=st.mix||{}, kinds=MIXK.map((k,i)=>[i,k[1],k[0]]).filter(k=>P[k[2]]), anyMix=kinds.length>0; $(\"mixHead\").hidden=!anyMix; $(\"mixSet\").hidden=!anyMix;\n"
+"  if(!anyMix) return;\n"
+"  $(\"mixMsg\").textContent=x.msg||\"\"; if(document.activeElement!==$(\"mixOn\")) $(\"mixOn\").checked=!!x.on;\n"
+"  segFill(\"segMixKind\",kinds.map(k=>[k[0],k[1]]),x.kind,(v,t)=>set(\"mixkind=\"+v,\"Desk: \"+t));\n"
+"  const qs=x.kind===5, ah=x.kind>=2&&x.kind<=4, osc=x.kind<=1; $(\"mixQsys\").hidden=!qs; $(\"mixTgtWrap\").hidden=qs; $(\"mixChWrap\").hidden=!ah; $(\"mixAdv\").hidden=!osc;\n"
+"  $(\"mixIpLbl\").textContent=qs?\"Core IP address\":x.kind===4?\"MixRack IP address\":\"Desk IP address\";\n"
+"  [[\"mixIp\",x.ip],[\"mixName\",x.name],[\"mixUser\",x.user],[\"mixAdr\",x.adr]].forEach(([id,v])=>{ if(document.activeElement!==$(id)) $(id).value=v||\"\"; });\n"
+"  const TN=[x.kind===4?\"Main\":\"Main LR\",\"DCA\",x.kind===2?\"Aux\":\"Bus\",\"Matrix\"], nlist=x.n||[1,0,0,0];\n"
+"  segFill(\"segMixTgt\",TN.map((t,i)=>[i,t]).filter(t=>nlist[t[0]]>0),x.tgt,(v,t)=>set(\"mixtgt=\"+v,\"Turns down: \"+t));\n"
+"  const cnt=nlist[x.tgt]||1; $(\"mixIdxWrap\").hidden=cnt<=1; segFill(\"segMixIdx\",Array.from({length:cnt},(_,i)=>[i+1,String(i+1)]),x.idx,v=>set(\"mixidx=\"+v,TN[x.tgt]+\" \"+v));\n"
+"  segFill(\"segMixCh\",Array.from({length:12},(_,i)=>[i+1,String(i+1)]),x.ch,v=>set(\"mixch=\"+v,\"MIDI channel \"+v));\n"
+"  [[\"segMixStep\",x.step],[\"segMixMax\",x.max],[\"segMixRec\",x.rec]].forEach(([id,v])=>document.querySelectorAll(\"#\"+id+\" button\").forEach(b=>b.classList.toggle(\"on\",+b.dataset.v===v)));\n"
+"  const H=[\"X32 / M32: the meter talks to the desk on UDP 10023. Works alongside X32-Edit and the apps.\",\"X-Air / MR: the meter talks to the desk on UDP 10024. Works alongside X-Air Edit and the apps.\",\n"
+"    \"SQ: set the desk's MIDI channel to match (Setup → Control → MIDI). The meter uses TCP 51325.\",\"Qu: set the desk's MIDI channel to match (Setup → Control → MIDI). The Qu allows one MIDI-over-network connection, so close MIDI Control apps.\",\n"
+"    \"dLive: enter the MixRack's IP and set the MIDI channel to match (Utility → Control → MIDI). The meter uses TCP 51325.\",\"Q-SYS: the meter uses the External Control Protocol (TCP 1702).\"];\n"
+"  $(\"mixHelp\").innerHTML=H[x.kind]+\" Uses the limit and average from <b>Limit alarm</b>. The meter and the desk must be on the same network (Settings → WiFi).\";\n"
 "}\n"
 "$(\"lidCopy\").onclick=async()=>{ try{ await navigator.clipboard.writeText(st.lid); toast(\"Licence ID copied\"); }catch(e){ toast(st&&st.lid?st.lid:\"Not connected\"); } };\n"
-"$(\"licOk\").onclick=async()=>{ const code=$(\"licCode\").value.trim(); if(!code){ toast(\"Paste the licence code first\"); return; }\n"
-"  try{ const r=await fetch(\"/api/set?plg=mtx&lic=\"+encodeURIComponent(code),{cache:\"no-store\"});\n"
-"    if(!r.ok){ toast(await r.text()||\"That code isn't valid for this meter\"); return; }\n"
-"    st=await r.json(); $(\"licCode\").value=\"\"; render(); toast(\"Yamaha MTX control unlocked\"); }catch(e){ toast(\"Not connected\"); } };\n"
 "async function setChecked(q,msg){ try{ const r=await fetch(\"/api/set?\"+q+pinQ(),{cache:\"no-store\"}); if(!r.ok){ toast(await r.text()); return; } st=await r.json(); render(); toast(st.denied?\"Locked: enter the PIN in Settings → General → Lock\":msg); }catch(e){ toast(\"Not connected\"); } }\n"
+"$(\"mixOn\").onchange=e=>set(\"mixon=\"+(e.target.checked?1:0), e.target.checked?\"Desk control on\":\"Desk control off\");\n"
+"$(\"mixIpSave\").onclick=()=>setChecked(\"mixip=\"+encodeURIComponent($(\"mixIp\").value.trim()),\"Address saved\");\n"
+"$(\"mixNameSave\").onclick=()=>setChecked(\"mixname=\"+encodeURIComponent($(\"mixName\").value.trim()),\"Saved\");\n"
+"$(\"mixLoginSave\").onclick=()=>setChecked(\"mixuser=\"+encodeURIComponent($(\"mixUser\").value.trim())+\"&mixpin=\"+encodeURIComponent($(\"mixPin\").value.trim()),\"Saved\");\n"
+"$(\"mixAdrSave\").onclick=()=>setChecked(\"mixadr=\"+encodeURIComponent($(\"mixAdr\").value.trim()),\"Saved\");\n"
+"$(\"mixTest\").onclick=async()=>{ await set(\"mixtest=1\",\"Checking…\"); setTimeout(()=>{ render(); toast(st&&st.mix?st.mix.msg:\"Not connected\"); },2000); };\n"
+"[[\"segMixStep\",\"mixstep\",v=>v+\" dB steps\"],[\"segMixMax\",\"mixmax\",v=>\"No more than \"+v+\" dB\"],[\"segMixRec\",\"mixrec\",v=>\"Back up after \"+v+\" min under\"]].forEach(([id,k,f])=>document.querySelectorAll(\"#\"+id+\" button\").forEach(b=>b.onclick=()=>set(k+\"=\"+b.dataset.v,f(b.dataset.v))));\n"
 "$(\"mtxOn\").onchange=e=>set(\"mtxon=\"+(e.target.checked?1:0), e.target.checked?\"MTX control on\":\"MTX control off\");\n"
 "$(\"mtxIpSave\").onclick=()=>setChecked(\"mtxip=\"+encodeURIComponent($(\"mtxIp\").value.trim()),\"MTX address saved\");\n"
 "$(\"mtxAdrSave\").onclick=()=>setChecked(\"mtxadr=\"+encodeURIComponent($(\"mtxAdr\").value.trim()),\"Saved\");\n"
@@ -5998,7 +6062,9 @@ static void jnum(String& s, const char* key, bool valid, float v) {
 // plugins (defined further down)
 String pluginsJson(); bool licenceValid(const char* plugId, const String& code); int pluginIndex(const String& id);
 void pluginsLoad(); void mtxSave(); extern bool mtxOn; extern String mtxIp; extern uint8_t mtxModel, mtxTarget, mtxIdx, mtxStepDb, mtxMaxCutDb, mtxRecMin;
-extern String mtxAddrCustom; extern volatile bool mtxTestReq, mtxReconnect; extern bool plugOn[4];
+extern String mtxAddrCustom; extern volatile bool mtxTestReq, mtxReconnect; extern bool plugOn[8];
+void mixSave(); extern bool mixOn; extern uint8_t mixKind, mixTgt, mixIdx, mixStepDb, mixMaxCutDb, mixRecMin, mixMidiCh;
+extern String mixIp, mixName, mixUser, mixPin, mixAdr; extern volatile bool mixTestReq, mixReconnect; int mixTgtCount(uint8_t k, uint8_t t);
 void sendState() {
   lastAppAt = millis();                    // the phone app is open
   takeSnapshot();
@@ -6116,7 +6182,7 @@ void sendState() {
 
 // Settings lock: these need the PIN when the meter is locked. Weighting, response, Reset MAX + Leq and markers don't.
 const char* const PROTECTED_ARGS[] = {"bright", "amber", "red", "cal", "cal94", "fcalback", "wifi", "limOn", "limDb", "limWin", "limW",
-                                      "ss", "sssecs", "ssmode", "sswake", "apname", "apdefault", "wifiauto", "newlog", "lockset", "lockoff", "factory", "restart", "sch", "schon", "alon", "altopic", "alhold", "alrep", "alback", "altest", "alnew", "mtxon", "mtxip", "mtxmodel", "mtxtgt", "mtxidx", "mtxstep", "mtxmax", "mtxrec", "mtxadr"};
+                                      "ss", "sssecs", "ssmode", "sswake", "apname", "apdefault", "wifiauto", "newlog", "lockset", "lockoff", "factory", "restart", "sch", "schon", "alon", "altopic", "alhold", "alrep", "alback", "altest", "alnew", "mtxon", "mtxip", "mtxmodel", "mtxtgt", "mtxidx", "mtxstep", "mtxmax", "mtxrec", "mtxadr", "mixon", "mixkind", "mixip", "mixtgt", "mixidx", "mixstep", "mixmax", "mixrec", "mixch", "mixname", "mixuser", "mixpin", "mixadr"};
 int verCmp(const String& a, const String& b) {   // compares "1.0.10" with "1.0.9" the right way
   int pa[3] = {0, 0, 0}, pb[3] = {0, 0, 0};
   sscanf(a.c_str(), "%d.%d.%d", &pa[0], &pa[1], &pa[2]); sscanf(b.c_str(), "%d.%d.%d", &pb[0], &pb[1], &pb[2]);
@@ -6183,6 +6249,24 @@ void handleSet() {
     if (server.hasArg("mtxadr")) { String v = server.arg("mtxadr"); v.trim(); if (v.length() > 80 || v.indexOf(' ') >= 0) { server.send(400, "text/plain", "That address doesn't look right"); return; } mtxAddrCustom = v; ch = true; }
     if (ch) { mtxSave(); mtxReconnect = true; }
     if (server.hasArg("mtxtest")) mtxTestReq = true;
+  }
+  {                                          // mixer control plugins (one set of settings, whichever desk is chosen)
+    bool ch = false;
+    if (server.hasArg("mixon")) { mixOn = server.arg("mixon") == "1"; ch = true; }
+    if (server.hasArg("mixkind")) { mixKind = constrain(server.arg("mixkind").toInt(), 0, 5); if (!mixTgtCount(mixKind, mixTgt)) mixTgt = 0; mixIdx = constrain(mixIdx, 1, max(1, mixTgtCount(mixKind, mixTgt))); ch = true; }
+    if (server.hasArg("mixip")) { String v = server.arg("mixip"); v.trim(); IPAddress ip; if (v.length() && !ip.fromString(v)) { server.send(400, "text/plain", "That isn't an IP address (like 192.168.0.20)"); return; } mixIp = v; ch = true; }
+    if (server.hasArg("mixtgt")) { int t = constrain(server.arg("mixtgt").toInt(), 0, 3); if (mixTgtCount(mixKind, t)) { mixTgt = t; mixIdx = 1; ch = true; } }
+    if (server.hasArg("mixidx")) { mixIdx = constrain(server.arg("mixidx").toInt(), 1, max(1, mixTgtCount(mixKind, mixTgt))); ch = true; }
+    if (server.hasArg("mixstep")) { mixStepDb = constrain(server.arg("mixstep").toInt(), 1, 3); ch = true; }
+    if (server.hasArg("mixmax")) { mixMaxCutDb = constrain(server.arg("mixmax").toInt(), 3, 20); ch = true; }
+    if (server.hasArg("mixrec")) { mixRecMin = constrain(server.arg("mixrec").toInt(), 1, 15); ch = true; }
+    if (server.hasArg("mixch")) { mixMidiCh = constrain(server.arg("mixch").toInt(), 1, 12); ch = true; }
+    if (server.hasArg("mixname")) { String v = server.arg("mixname"); v.trim(); if (!v.length() || v.length() > 40 || v.indexOf(' ') >= 0) { server.send(400, "text/plain", "Use the Q-SYS named control's name, with no spaces"); return; } mixName = v; ch = true; }
+    if (server.hasArg("mixuser")) { String v = server.arg("mixuser"); v.trim(); if (v.length() > 32 || v.indexOf(' ') >= 0) { server.send(400, "text/plain", "No spaces in the user name"); return; } mixUser = v; ch = true; }
+    if (server.hasArg("mixpin")) { String v = server.arg("mixpin"); v.trim(); if (v.length() > 16 || v.indexOf(' ') >= 0) { server.send(400, "text/plain", "That PIN doesn't look right"); return; } mixPin = v; ch = true; }
+    if (server.hasArg("mixadr")) { String v = server.arg("mixadr"); v.trim(); if (v.length() > 48 || (v.length() && v[0] != '/') || v.indexOf(' ') >= 0) { server.send(400, "text/plain", "OSC addresses start with / (like /main/st/mix/fader)"); return; } mixAdr = v; ch = true; }
+    if (ch) { mixSave(); mixReconnect = true; }
+    if (server.hasArg("mixtest")) mixTestReq = true;
   }
   if (server.hasArg("tcok")) {               // terms of use accepted on the phone (first time the app is opened)
     termsOk = TERMS_VERSION; prefs.putUChar("tcv", termsOk);
@@ -6341,9 +6425,10 @@ bool netOnline() { return netMode == NET_STA && WiFi.status() == WL_CONNECTED; }
 #include "mbedtls/sha256.h"
 static const uint8_t LIC_PUB[65] = { 0x04, 0x01, 0x85, 0x62, 0x5e, 0x91, 0x6f, 0x7e, 0x80, 0xed, 0xbb, 0xc3, 0x3c, 0x95, 0x34, 0x99, 0x46, 0xcc, 0x50, 0xcf, 0x6d, 0x45, 0xe1, 0x90, 0xfc, 0x3c, 0x7c, 0xaf, 0xf6, 0xaf, 0xbf, 0x56, 0x10, 0x27, 0x49, 0x95, 0x62, 0x1c, 0x5d, 0x98, 0xfa, 0x0c, 0xee, 0xd0, 0x2e, 0x7a, 0xde, 0xf1, 0x56, 0xa2, 0x5c, 0x65, 0x32, 0xcc, 0x1f, 0xf8, 0x92, 0x6f, 0x30, 0x42, 0x53, 0x48, 0xd8, 0xb9, 0xf5 };
 struct PluginDef { const char* id; const char* name; };
-const PluginDef PLUGINS[] = { {"mtx", "Yamaha MTX control"} };
+const PluginDef PLUGINS[] = { {"mtx", "Yamaha MTX control"}, {"x32", "Behringer / Midas control"}, {"sq", "Allen & Heath SQ control"},
+                               {"qu", "Allen & Heath Qu control"}, {"dlive", "Allen & Heath dLive control"}, {"qsys", "Q-SYS control"} };
 const int NUM_PLUGINS = sizeof(PLUGINS) / sizeof(PLUGINS[0]);
-bool plugOn[4] = {false};
+bool plugOn[8] = {false};
 
 String licenceId() {                         // 12 hex characters from the chip's factory MAC: can't be changed
   uint64_t mac = ESP.getEfuseMac(); char b[13];
@@ -6484,6 +6569,227 @@ void mtxTask(void*) {
     mtxSetMsg(String(b));
   }
 }
+
+// ================= PLUGINS: mixer control (one limiter, a driver per desk) =================
+// Same behaviour as the MTX plugin: over the limit, the chosen fader comes down a step every 5 s (never more than
+// the most-cut setting); once it's been back under for the set time it goes back up a step at a time, never above
+// where it started. If the engineer moves that fader, the meter takes that as the new start and stops cutting.
+enum MixKind { MX_X32 = 0, MX_XAIR, MX_SQ, MX_QU, MX_DLIVE, MX_QSYS, MX_KINDS };
+const char* const MIX_PLUG[MX_KINDS] = {"x32", "x32", "sq", "qu", "dlive", "qsys"};
+const char* const MIX_NAME[MX_KINDS] = {"X32 / M32", "X-Air / MR", "SQ", "Qu", "dLive", "Q-SYS"};
+bool mixOn = false; uint8_t mixKind = MX_X32; String mixIp = "";
+uint8_t mixTgt = 0, mixIdx = 1, mixStepDb = 1, mixMaxCutDb = 6, mixRecMin = 2, mixMidiCh = 1;
+String mixName = "PocketSPL";                // Q-SYS named control
+String mixUser = "", mixPin = "";            // Q-SYS login, if the Core needs one
+String mixAdr = "";                          // advanced: X32 OSC address to use instead
+volatile int mixConn = 0, mixCut = 0, mixBase = -32768;   // dB x100
+volatile bool mixTestReq = false, mixReconnect = false;
+char mixMsg[140] = "Off";
+void mixSetMsg(const String& m) { strlcpy(mixMsg, m.c_str(), sizeof(mixMsg)); }
+const int MIX_NOLEVEL = -32768;
+
+int mixTgtCount(uint8_t k, uint8_t t) {      // how many of each target the desk has (0 = target not offered)
+  switch (k) {
+    case MX_X32:  return t == 0 ? 1 : t == 1 ? 8 : t == 2 ? 16 : t == 3 ? 6 : 0;
+    case MX_XAIR: return t == 0 ? 1 : t == 1 ? 4 : t == 2 ? 6 : 0;
+    case MX_SQ:   return t == 0 ? 1 : t == 1 ? 8 : t == 2 ? 12 : t == 3 ? 3 : 0;
+    case MX_QU:   return t == 0 ? 1 : t == 1 ? 4 : 0;
+    case MX_DLIVE:return t == 0 ? 6 : t == 1 ? 24 : 0;
+    default:      return t == 0 ? 1 : 0;
+  }
+}
+String mixWhat() {
+  if (mixKind == MX_QSYS) return "\"" + mixName + "\"";
+  const char* n[4] = {"Main", "DCA", (mixKind == MX_SQ ? "Aux" : "Bus"), "Matrix"};
+  String w = n[mixTgt % 4]; if (mixTgtCount(mixKind, mixTgt) > 1) w += " " + String(mixIdx); else if (mixTgt == 0) w = "Main LR";
+  return w;
+}
+// ---- level scales ----
+float x32ToDb(float f) { if (f <= 0) return -144; return f >= 0.5f ? f * 40 - 30 : f >= 0.25f ? f * 80 - 50 : f >= 0.0625f ? f * 160 - 70 : f * 480 - 90; }
+float x32FromDb(float d) { float f = d < -60 ? (d + 90) / 480 : d < -30 ? (d + 70) / 160 : d < -10 ? (d + 50) / 80 : (d + 30) / 40; f = constrain(f, 0.0f, 1.0f); return roundf(f * 1023) / 1023; }
+const int8_t QU_DB[] = {10, 5, 0, -5, -10, -20, -30, -40}; const uint8_t QU_V[] = {127, 114, 98, 79, 63, 47, 31, 16};
+int quFromDb(float d) { if (d >= 10) return 127; for (int i = 0; i < 7; i++) if (d >= QU_DB[i + 1]) return roundf(QU_V[i + 1] + (d - QU_DB[i + 1]) * (QU_V[i] - QU_V[i + 1]) / (float)(QU_DB[i] - QU_DB[i + 1])); return max(0, (int)roundf(16 + (d + 40) * 1.6f)); }
+float quToDb(int v) { if (v <= 0) return -144; for (int i = 0; i < 7; i++) if (v >= QU_V[i + 1]) return QU_DB[i + 1] + (v - QU_V[i + 1]) * (float)(QU_DB[i] - QU_DB[i + 1]) / (QU_V[i] - QU_V[i + 1]); return -40 - (16 - v) / 1.6f; }
+int dlFromDb(float d) { return constrain((int)roundf(107 + 2 * d), 1, 127); }
+float dlToDb(int v) { return v <= 0 ? -144 : (v - 107) / 2.0f; }
+// ---- addresses ----
+String x32Addr() {
+  if (mixAdr.length()) return mixAdr;
+  char b[32];
+  if (mixKind == MX_XAIR) {
+    if (mixTgt == 1) snprintf(b, sizeof(b), "/dca/%d/fader", mixIdx); else if (mixTgt == 2) snprintf(b, sizeof(b), "/bus/%d/mix/fader", mixIdx); else strcpy(b, "/lr/mix/fader");
+  } else {
+    if (mixTgt == 1) snprintf(b, sizeof(b), "/dca/%d/fader", mixIdx); else if (mixTgt == 2) snprintf(b, sizeof(b), "/bus/%02d/mix/fader", mixIdx);
+    else if (mixTgt == 3) snprintf(b, sizeof(b), "/mtx/%02d/mix/fader", mixIdx); else strcpy(b, "/main/st/mix/fader");
+  }
+  return b;
+}
+void sqParam(uint8_t& mb, uint8_t& lb) { mb = 0x4F; lb = mixTgt == 1 ? 0x20 + mixIdx - 1 : mixTgt == 2 ? mixIdx : mixTgt == 3 ? 0x10 + mixIdx : 0x00; }
+void quParam(uint8_t& ch) { ch = mixTgt == 1 ? 0x10 + mixIdx - 1 : 0x67; }
+void dlParam(uint8_t& midiOff, uint8_t& ch) { midiOff = 4; ch = mixTgt == 1 ? 0x36 + mixIdx - 1 : 0x30 + mixIdx - 1; }
+
+// ---- OSC (X32 / X-Air, UDP) ----
+int oscPad(uint8_t* b, int n) { while (n % 4) b[n++] = 0; return n; }
+int oscMsg(uint8_t* b, const String& addr, bool withFloat, float v) {
+  int n = 0; memcpy(b, addr.c_str(), addr.length()); n = addr.length(); b[n++] = 0; n = oscPad(b, n);
+  if (withFloat) { b[n++] = ','; b[n++] = 'f'; b[n++] = 0; b[n++] = 0; uint32_t u; memcpy(&u, &v, 4);
+    b[n++] = u >> 24; b[n++] = u >> 16; b[n++] = u >> 8; b[n++] = u; }
+  return n;
+}
+bool oscParseFloat(const uint8_t* b, int len, String& addr, float& v) {
+  int i = 0; while (i < len && b[i]) i++; if (i >= len) return false; addr = String((const char*)b);
+  i = (i + 4) & ~3; if (i + 4 > len || b[i] != ',' || b[i + 1] != 'f') return false; i += 4; if (i + 4 > len) return false;
+  uint32_t u = ((uint32_t)b[i] << 24) | ((uint32_t)b[i + 1] << 16) | ((uint32_t)b[i + 2] << 8) | b[i + 3]; memcpy(&v, &u, 4); return true;
+}
+// ---- MIDI over TCP (A&H): small parser that understands running status ----
+struct MidiIn { uint8_t st = 0, d[2]; int n = 0; uint8_t nrpnM = 0, nrpnL = 0, vc = 0; bool inSx = false; };
+// calls back with (channel, nrpnMsb, nrpnLsb, valueCoarse, valueFine or 0xFF) when a value arrives
+template <typename F> void midiFeed(MidiIn& m, uint8_t c, F cb) {
+  if (c == 0xF0) { m.inSx = true; return; } if (m.inSx) { if (c == 0xF7) m.inSx = false; return; }
+  if (c & 0x80) { m.st = c; m.n = 0; return; }
+  if ((m.st & 0xF0) != 0xB0) return;
+  m.d[m.n++] = c; if (m.n < 2) return; m.n = 0;
+  uint8_t cc = m.d[0], v = m.d[1], ch = m.st & 0x0F;
+  if (cc == 0x63) m.nrpnM = v; else if (cc == 0x62) m.nrpnL = v;
+  else if (cc == 0x06) { m.vc = v; cb(ch, m.nrpnM, m.nrpnL, v, 0xFF); }
+  else if (cc == 0x26) cb(ch, m.nrpnM, m.nrpnL, m.vc, v);
+}
+void mixLoad() {
+  mixOn = prefs.getBool("mixOn", false); mixKind = min((int)prefs.getUChar("mixKind", 0), MX_KINDS - 1); mixIp = prefs.getString("mixIp", "");
+  mixTgt = prefs.getUChar("mixTgt", 0); mixIdx = prefs.getUChar("mixIdx", 1); mixStepDb = prefs.getUChar("mixStep", 1);
+  mixMaxCutDb = prefs.getUChar("mixMax", 6); mixRecMin = prefs.getUChar("mixRec", 2); mixMidiCh = prefs.getUChar("mixCh", 1);
+  mixName = prefs.getString("mixName", "PocketSPL"); mixUser = prefs.getString("mixUser", ""); mixPin = prefs.getString("mixPin", ""); mixAdr = prefs.getString("mixAdr", "");
+}
+void mixSave() {
+  prefs.putBool("mixOn", mixOn); prefs.putUChar("mixKind", mixKind); prefs.putString("mixIp", mixIp);
+  prefs.putUChar("mixTgt", mixTgt); prefs.putUChar("mixIdx", mixIdx); prefs.putUChar("mixStep", mixStepDb);
+  prefs.putUChar("mixMax", mixMaxCutDb); prefs.putUChar("mixRec", mixRecMin); prefs.putUChar("mixCh", mixMidiCh);
+  prefs.putString("mixName", mixName); prefs.putString("mixUser", mixUser); prefs.putString("mixPin", mixPin); prefs.putString("mixAdr", mixAdr);
+}
+
+void mixTask(void*) {
+  NetworkClient c; WiFiUDP udp; bool udpUp = false; MidiIn mi;
+  uint32_t lastBeat = 0, lastStep = 0, underSince = 0, lastPoll = 0, lastSent = 0;
+  int lastSet = MIX_NOLEVEL; bool linked = false;
+  auto drop = [&]() { if (c.connected()) c.stop(); linked = false; mixBase = MIX_NOLEVEL; mixCut = 0; };
+  auto quWrite = [&](uint8_t st, uint8_t a, uint8_t b) { uint8_t m[3] = {st, a, b}; c.write(m, 3); };
+  // read the desk's level (dB x100), MIX_NOLEVEL if it didn't answer; SQ has no absolute read here: 0 = "relative only"
+  auto readLevel = [&]() -> int {
+    uint8_t buf[256];
+    switch (mixKind) {
+      case MX_X32: case MX_XAIR: {
+        int n = oscMsg(buf, x32Addr(), false, 0); udp.beginPacket(mixIp.c_str(), mixKind == MX_XAIR ? 10024 : 10023); udp.write(buf, n); udp.endPacket();
+        uint32_t t0 = millis();
+        while (millis() - t0 < 600) { int len = udp.parsePacket(); if (len > 0) { len = udp.read(buf, sizeof(buf)); String a; float v;
+            if (oscParseFloat(buf, len, a, v) && a == x32Addr()) return (int)roundf(x32ToDb(v) * 100); } delay(10); }
+        return MIX_NOLEVEL; }
+      case MX_QSYS: {
+        c.print("cg " + mixName + "\n"); uint32_t t0 = millis(); String l;
+        while (millis() - t0 < 1500) { while (c.available()) { char ch = c.read(); if (ch == '\n') { l.trim();
+              if (l.startsWith("cv")) { int q = l.lastIndexOf('"'); String r = l.substring(q + 1); r.trim(); int sp = r.indexOf(' '); return (int)roundf(r.substring(0, sp).toFloat() * 100); }
+              if (l.startsWith("bad_id")) return MIX_NOLEVEL; l = ""; } else if (ch != '\r') l += ch; } delay(10); }
+        return MIX_NOLEVEL; }
+      case MX_QU: case MX_DLIVE: {
+        uint8_t want = 0, off = 0; int got = -1;
+        if (mixKind == MX_QU) { quParam(want);
+          uint8_t sx[] = {0xF0, 0, 0, 0x1A, 0x50, 0x11, 0x01, 0x00, 0x7F, 0x10, 0x00, 0xF7}; c.write(sx, sizeof(sx)); }   // Qu: ask for the whole state
+        else { dlParam(off, want); uint8_t chn = (mixMidiCh - 1 + off) & 0x0F;
+          uint8_t sx[] = {0xF0, 0, 0, 0x1A, 0x50, 0x10, 0x01, 0x00, chn, 0x05, 0x0B, 0x17, want, 0xF7}; c.write(sx, sizeof(sx)); }
+        uint32_t t0 = millis(); MidiIn m;
+        while (millis() - t0 < 3000 && got < 0) { while (c.available() && got < 0) midiFeed(m, c.read(), [&](uint8_t ch, uint8_t M, uint8_t L, uint8_t vc, uint8_t vf) {
+              if (vf == 0xFF && M == want && L == 0x17) got = vc; }); delay(5); }
+        if (got < 0) return MIX_NOLEVEL;
+        return (int)roundf((mixKind == MX_QU ? quToDb(got) : dlToDb(got)) * 100); }
+      default: return 0;
+    }
+  };
+  auto setLevel = [&](int db100) -> bool {     // absolute desks
+    uint8_t buf[64]; float d = db100 / 100.0f;
+    switch (mixKind) {
+      case MX_X32: case MX_XAIR: { int n = oscMsg(buf, x32Addr(), true, x32FromDb(d)); udp.beginPacket(mixIp.c_str(), mixKind == MX_XAIR ? 10024 : 10023); udp.write(buf, n); return udp.endPacket(); }
+      case MX_QSYS: c.print("csv " + mixName + " " + String(d, 1) + "\n"); return true;
+      case MX_QU: { uint8_t ch; quParam(ch); uint8_t st = 0xB0 | ((mixMidiCh - 1) & 0x0F);
+        quWrite(st, 0x63, ch); quWrite(st, 0x62, 0x17); quWrite(st, 0x06, quFromDb(d)); quWrite(st, 0x26, 0x07); return true; }
+      case MX_DLIVE: { uint8_t off, ch; dlParam(off, ch); uint8_t st = 0xB0 | ((mixMidiCh - 1 + off) & 0x0F);
+        quWrite(st, 0x63, ch); quWrite(st, 0x62, 0x17); quWrite(st, 0x06, dlFromDb(d)); return true; }
+      default: return false;
+    }
+  };
+  auto sqStep = [&](bool down, int dB) {        // SQ: +/-1 dB per message
+    uint8_t mb, lb; sqParam(mb, lb); uint8_t st = 0xB0 | ((mixMidiCh - 1) & 0x0F);
+    for (int i = 0; i < dB; i++) { quWrite(st, 0x63, mb); quWrite(st, 0x62, lb); quWrite(st, down ? 0x61 : 0x60, 0x00); }
+  };
+  for (;;) {
+    vTaskDelay(pdMS_TO_TICKS(200));
+    bool licensed = pluginActive(MIX_PLUG[mixKind]);
+    bool want = licensed && mixOn && mixIp.length() && netOnline();
+    if (mixReconnect) { mixReconnect = false; drop(); }
+    if (!want) { drop(); mixConn = 0;
+      mixSetMsg(!licensed ? String(MIX_NAME[mixKind]) + " control is locked" : !mixOn ? "Off" : !mixIp.length() ? "Enter the desk's IP address" : "Needs the meter on the venue's network (Settings → WiFi)");
+      continue; }
+    uint32_t now = millis();
+    if (!linked) {
+      mixConn = 1; mixSetMsg(String("Connecting to the ") + MIX_NAME[mixKind] + " at " + mixIp + "…");
+      bool ok = true; String why;
+      if (mixKind == MX_X32 || mixKind == MX_XAIR) { if (!udpUp) udpUp = udp.begin(10050); }
+      else {
+        uint16_t port = mixKind == MX_QSYS ? 1702 : 51325;
+        ok = c.connect(mixIp.c_str(), port, 2000); if (!ok) why = "Can't reach it";
+        if (ok && mixKind == MX_QSYS && mixUser.length()) { c.print("login " + mixUser + " " + mixPin + "\n"); delay(400); String l; while (c.available()) l += (char)c.read(); if (l.indexOf("login_failed") >= 0) { ok = false; why = "Q-SYS login failed"; } }
+      }
+      int lv = ok ? readLevel() : MIX_NOLEVEL;
+      if (ok && mixKind != MX_SQ && lv == MIX_NOLEVEL) { ok = false; why = String("No answer for ") + mixWhat() + (mixKind == MX_QSYS ? " (check the named control)" : ""); }
+      if (!ok) { drop(); mixConn = 3; mixSetMsg(why + " (" + mixIp + ")"); vTaskDelay(pdMS_TO_TICKS(5000)); continue; }
+      mixBase = lv; lastSet = lv; mixCut = 0; linked = true; mixConn = 2; lastBeat = lastPoll = now; underSince = 0;
+    }
+    if (mixKind != MX_X32 && mixKind != MX_XAIR && !c.connected()) { drop(); continue; }
+    // keepalive + spotting the engineer moving the fader
+    if (mixKind == MX_X32 || mixKind == MX_XAIR) {
+      if (now - lastBeat > 8000) { uint8_t b[16]; int n = oscMsg(b, "/xremote", false, 0); udp.beginPacket(mixIp.c_str(), mixKind == MX_XAIR ? 10024 : 10023); udp.write(b, n); udp.endPacket(); lastBeat = now; }
+      int len; uint8_t buf[256];
+      while ((len = udp.parsePacket()) > 0) { len = udp.read(buf, sizeof(buf)); String a; float v;
+        if (oscParseFloat(buf, len, a, v) && a == x32Addr()) { int lv = (int)roundf(x32ToDb(v) * 100); if (abs(lv - lastSet) > 30) { mixBase = lv; lastSet = lv; mixCut = 0; } } }
+    } else if (mixKind == MX_QSYS) {
+      if (now - lastPoll > 3000) { lastPoll = now; int lv = readLevel(); if (lv != MIX_NOLEVEL && abs(lv - lastSet) > 30) { mixBase = lv; lastSet = lv; mixCut = 0; } }
+    } else {
+      uint8_t pm = 0, pl = 0, qch = 0, off = 0; if (mixKind == MX_SQ) sqParam(pm, pl); else if (mixKind == MX_QU) quParam(qch); else dlParam(off, qch);
+      while (c.available()) midiFeed(mi, c.read(), [&](uint8_t ch, uint8_t M, uint8_t L, uint8_t vc, uint8_t vf) {
+        if (now - lastSent < 1500) return;                 // our own change echoing back
+        if (mixKind == MX_SQ && M == pm && L == pl && vf == 0xFF) { mixCut = 0; }
+        if (mixKind != MX_SQ && M == qch && L == 0x17 && vf == 0xFF) { int lv = (int)roundf((mixKind == MX_QU ? quToDb(vc) : dlToDb(vc)) * 100); if (abs(lv - lastSet) > 60) { mixBase = lv; lastSet = lv; mixCut = 0; } }
+      });
+      if (now - lastBeat > 20000) { lastBeat = now; }
+    }
+    if (mixTestReq) { mixTestReq = false; if (mixKind != MX_SQ) { int lv = readLevel(); if (lv != MIX_NOLEVEL && mixCut == 0) { mixBase = lv; lastSet = lv; } } }
+    if (mixKind != MX_SQ && mixBase <= -9000) { mixSetMsg(String("Connected. ") + mixWhat() + " is all the way down, nothing to turn down"); continue; }
+    int st = limState;
+    if (st == 2) underSince = 0; else if (st == 0 && !underSince) underSince = now; else if (st == 1) underSince = 0;
+    int target = mixCut;
+    if (st == 2 && now - lastStep >= 5000 && mixCut < mixMaxCutDb * 100) target = min(mixCut + mixStepDb * 100, mixMaxCutDb * 100);
+    if (st == 0 && mixCut > 0 && underSince && now - underSince >= (uint32_t)mixRecMin * 60000UL && now - lastStep >= 5000) target = max(0, mixCut - mixStepDb * 100);
+    if (target != mixCut) {
+      bool ok;
+      if (mixKind == MX_SQ) { sqStep(target > mixCut, abs(target - mixCut) / 100); ok = true; }
+      else { ok = setLevel(mixBase - target); if (ok) lastSet = mixBase - target; }
+      if (ok) { mixCut = target; lastStep = now; lastSent = now; }
+    }
+    char b[120];
+    if (mixKind == MX_SQ) snprintf(b, sizeof(b), "Connected. %s%s", mixWhat().c_str(), mixCut ? (String(", turned down ") + String(mixCut / 100) + " dB").c_str() : ", not turned down");
+    else snprintf(b, sizeof(b), "Connected. %s at %.1f dB%s", mixWhat().c_str(), (mixBase - mixCut) / 100.0f, mixCut ? (String(", turned down ") + String(mixCut / 100.0f, 1) + " dB").c_str() : "");
+    mixSetMsg(String(b));
+  }
+}
+String mixJson() {
+  String s = "\"mix\":{\"on\":"; s += mixOn ? "true" : "false";
+  s += ",\"kind\":" + String(mixKind) + ",\"ip\":\"" + jsonEsc(mixIp) + "\",\"tgt\":" + String(mixTgt) + ",\"idx\":" + String(mixIdx);
+  s += ",\"step\":" + String(mixStepDb) + ",\"max\":" + String(mixMaxCutDb) + ",\"rec\":" + String(mixRecMin) + ",\"ch\":" + String(mixMidiCh);
+  s += ",\"name\":\"" + jsonEsc(mixName) + "\",\"user\":\"" + jsonEsc(mixUser) + "\",\"adr\":\"" + jsonEsc(mixAdr) + "\",\"conn\":" + String((int)mixConn);
+  s += ",\"cut\":" + String(mixCut / 100.0f, 1) + ",\"msg\":\"" + jsonEsc(String(mixMsg)) + "\",\"n\":[";
+  for (int t = 0; t < 4; t++) { if (t) s += ","; s += String(mixTgtCount(mixKind, t)); }
+  s += "]},";
+  return s;
+}
+
 void mtxLoad() {
   mtxOn = prefs.getBool("mtxOn", false); mtxIp = prefs.getString("mtxIp", ""); mtxModel = prefs.getUChar("mtxMod", 0);
   mtxTarget = prefs.getUChar("mtxTgt", 0); mtxIdx = prefs.getUChar("mtxIdx", 1);
@@ -6504,6 +6810,7 @@ String pluginsJson() {
   s += ",\"step\":" + String(mtxStepDb) + ",\"max\":" + String(mtxMaxCutDb) + ",\"rec\":" + String(mtxRecMin);
   s += ",\"adr\":\"" + jsonEsc(mtxAddrCustom) + "\",\"conn\":" + String((int)mtxConn) + ",\"cut\":" + String(mtxCut / 100.0f, 1);
   s += ",\"msg\":\"" + jsonEsc(mtxMsg) + "\"},";
+  s += mixJson();
   return s;
 }
 bool validTopic(const String& t) {
@@ -10660,7 +10967,7 @@ void setup() {
   if (!validVersion(latestFw)) latestFw = "";
   lockPin = prefs.getString("pin", "");
   termsOk = prefs.getUChar("tcv", 0);
-  pluginsLoad(); mtxLoad();
+  pluginsLoad(); mtxLoad(); mixLoad();
   if (lockPin.length() && !validPin(lockPin)) lockPin = "";
   factoryCalSet = prefs.getBool("fcalok", false);
   factoryCal = prefs.getFloat("fcal", 0.0f);
@@ -10782,6 +11089,7 @@ void setup() {
   else Serial.println("RTA: not enough memory");
   xTaskCreatePinnedToCore(audioTask, "audio", 6144, NULL, 5, NULL, 1);
   xTaskCreatePinnedToCore(mtxTask, "mtx", 6144, NULL, 1, NULL, 0);   // Yamaha MTX plugin (idles unless unlocked and on)
+  xTaskCreatePinnedToCore(mixTask, "mix", 8192, NULL, 1, NULL, 0);   // mixer control plugins (idle unless unlocked and on)
   lastActivity = millis();
   String prevFw = prefs.getString("fwv", "");
   if (prevFw != FW_VERSION) { prefs.putString("fwv", FW_VERSION); if (prevFw.length()) toast("Updated", "Now v" FW_VERSION, 4000); }
