@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.56"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.57"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -209,7 +209,7 @@ bool fsOk = false;                          // flash storage for saved gig logs 
 volatile uint32_t micFlatSince = 0;         // when the mic signal went completely flat (0 = it's fine)
 bool lastDenied = false, lastPinOk = false; // for the next reply to the phone
 const float   DEFAULT_CAL_OFFSET = 0.0f;
-const uint8_t DEFAULT_BRIGHTNESS = 16;     // 1..15 normal, 16 = Outdoor (brightest). New meters start at the brightest.
+const uint8_t DEFAULT_BRIGHTNESS = 15;     // 1..15 normal, 16 = Outdoor (brightest, more battery). New meters start at the brightest normal.
 const uint8_t DEFAULT_THEME = 0;           // 0 = Clean (the new look), 1 = Studio (changeable on the phone)
 const int     DEFAULT_AMBER = 85, DEFAULT_RED = 95;
 const float   BAR_MIN_DB = 60.0f, BAR_MAX_DB = 110.0f;
@@ -3262,6 +3262,8 @@ float calOffset = DEFAULT_CAL_OFFSET;
 int amberFrom = DEFAULT_AMBER, redFrom = DEFAULT_RED;
 uint8_t brightness = DEFAULT_BRIGHTNESS;
 bool wifiOn = true;
+uint8_t wifiAutoMin = 10;       // WiFi turns itself off after this many minutes with no phone app open (0 = never)
+uint32_t lastAppAt = 0;         // when the phone app last asked the meter for anything (or WiFi came on)
 // gig mode settings
 bool limOn = false;          // limit alarm
 int  limDb = 100;            // limit, dB (WHO safe listening venues: 100 dB LAeq over 15 min)
@@ -3623,7 +3625,7 @@ void readBattery() {
 void savePrefs() {
   prefs.putUChar("w", wMode); prefs.putUChar("r", rMode); prefs.putFloat("cal", calOffset);
   prefs.putUChar("amb", amberFrom); prefs.putUChar("red", redFrom);
-  prefs.putUChar("bri", brightness); prefs.putBool("wifi", wifiOn);
+  prefs.putUChar("bri", brightness); prefs.putBool("wifi", wifiOn); prefs.putUChar("wofm", wifiAutoMin);
   prefs.putBool("limOn", limOn); prefs.putUChar("limDb", limDb); prefs.putUChar("limWin", limWin); prefs.putUChar("limW", limW);
   prefs.putBool("ssOn", ssOn); prefs.putUShort("ssSecs", ssSecs); prefs.putUChar("ssMode", ssMode); prefs.putUChar("ssWk", ssWake);
   prefs.putUChar("theme", theme);
@@ -4549,6 +4551,8 @@ const char PAGE[] PROGMEM =
 "  <div class=\"card\" data-tab=\"settings\" data-sub=\"wifi\" data-menu data-lock>\n"
 "    <h2>WiFi power</h2>\n"
 
+"    <div class=\"ctl\"><span>Turn off by itself</span><div class=\"seg\" id=\"segWofm\"><button data-v=\"0\">Never</button><button data-v=\"5\">5 min</button><button data-v=\"10\">10 min</button><button data-v=\"15\">15 min</button><button data-v=\"30\">30 min</button></div></div>\n"
+"    <p class=\"note\">WiFi uses the most battery. It turns itself off when the app hasn't been open for this long (not while the meter is on another network).</p>\n"
 "    <div class=\"row\"><button class=\"btn wide danger\" id=\"wifiOff\">Turn WiFi off (saves battery)</button></div>\n"
 "    <p class=\"note\">To turn WiFi back on, hold the meter's button for 3 seconds.</p>\n"
 "  </div>\n"
@@ -4750,6 +4754,7 @@ const char PAGE[] PROGMEM =
 "  if(st.r<3) lastResp=st.r;\n"
 "  document.querySelectorAll(\"#segR button\").forEach(b=>b.classList.toggle(\"on\", +b.dataset.v===(st.r<3?st.r:lastResp)));\n"
 "  document.querySelectorAll(\"#segScr button\").forEach(b=>b.classList.toggle(\"on\", st.r<3 ? b.dataset.v===\"lvl\" : +b.dataset.v===st.r));\n"
+"  if(st.wifiauto!==undefined) document.querySelectorAll(\"#segWofm button\").forEach(b=>b.classList.toggle(\"on\", +b.dataset.v===st.wifiauto));\n"
 "  if(document.activeElement!==$(\"bright\")) $(\"bright\").value = st.bright;\n"
 "  $(\"amber\").textContent = st.amber+\" dB\"; $(\"red\").textContent = st.red+\" dB\";\n"
 "  $(\"cal\").textContent = (st.cal>=0?\"+\":\"\")+st.cal.toFixed(1);\n"
@@ -5045,6 +5050,7 @@ const char PAGE[] PROGMEM =
 "\n"
 "document.querySelectorAll(\"#segW button\").forEach(b=>b.onclick=()=>set(\"w=\"+b.dataset.v, W[b.dataset.v]));\n"
 "document.querySelectorAll(\"#segR button\").forEach(b=>b.onclick=()=>set(\"r=\"+b.dataset.v, R[b.dataset.v]+(b.dataset.v===\"2\"?\" (Leq restarted)\":\"\")));\n"
+"document.querySelectorAll(\"#segWofm button\").forEach(b=>b.onclick=()=>set(\"wifiauto=\"+b.dataset.v, b.dataset.v===\"0\"?\"WiFi stays on\":\"WiFi turns off after \"+b.dataset.v+\" min without the app\"));\n"
 "document.querySelectorAll(\"#segScr button\").forEach(b=>b.onclick=()=>{ const v=b.dataset.v===\"lvl\"?lastResp:+b.dataset.v; set(\"r=\"+v, v===3?\"Meter shows the RTA\":v===4?\"Meter shows the Gig screen\":\"Meter shows the level\"); });\n"
 "$(\"reset\").onclick=()=>{ hist=[]; set(\"reset=1\",\"MAX and Leq reset\"); };\n"
 "$(\"bright\").onchange=e=>set(\"bright=\"+e.target.value,e.target.value==16?\"Brightness: Outdoor\":\"Brightness \"+e.target.value);\n"
@@ -5916,6 +5922,7 @@ static void jnum(String& s, const char* key, bool valid, float v) {
 }
 
 void sendState() {
+  lastAppAt = millis();                    // the phone app is open
   takeSnapshot();
   bool warm = warmup > 0;
   float fast = snapFastDb();
@@ -5959,6 +5966,7 @@ void sendState() {
   s += "\"lock\":"; s += lockPin.length() ? "true," : "false,";
   s += "\"micfault\":"; s += micFaulty() ? "true," : "false,";
   s += "\"chipc\":"; s += String((int)(chipC + 0.5f)); s += ",";
+  s += "\"wifiauto\":"; s += String(wifiAutoMin); s += ",";
   s += "\"fs\":"; s += fsOk ? "true," : "false,";
   s += "\"logo\":"; s += hasLogo() ? "true," : "false,";
   if (factoryCalSet) { char fc[32]; snprintf(fc, sizeof(fc), "\"fcal\":%.2f,", factoryCal); s += fc; } else s += "\"fcal\":null,";
@@ -6029,7 +6037,7 @@ void sendState() {
 
 // Settings lock: these need the PIN when the meter is locked. Weighting, response, Reset MAX + Leq and markers don't.
 const char* const PROTECTED_ARGS[] = {"bright", "amber", "red", "cal", "cal94", "fcalback", "wifi", "limOn", "limDb", "limWin", "limW",
-                                      "ss", "sssecs", "ssmode", "sswake", "apname", "apdefault", "newlog", "lockset", "lockoff", "factory", "restart", "sch", "schon", "alon", "altopic", "alhold", "alrep", "alback", "altest", "alnew"};
+                                      "ss", "sssecs", "ssmode", "sswake", "apname", "apdefault", "wifiauto", "newlog", "lockset", "lockoff", "factory", "restart", "sch", "schon", "alon", "altopic", "alhold", "alrep", "alback", "altest", "alnew"};
 int verCmp(const String& a, const String& b) {   // compares "1.0.10" with "1.0.9" the right way
   int pa[3] = {0, 0, 0}, pb[3] = {0, 0, 0};
   sscanf(a.c_str(), "%d.%d.%d", &pa[0], &pa[1], &pa[2]); sscanf(b.c_str(), "%d.%d.%d", &pb[0], &pb[1], &pb[2]);
@@ -6116,6 +6124,7 @@ void handleSet() {
   if (server.hasArg("ss"))     { ssOn = server.arg("ss").toInt() != 0; savePrefs(); }
   if (server.hasArg("sssecs")) { ssSecs = constrain(server.arg("sssecs").toInt(), 10, 3600); savePrefs(); }
   if (server.hasArg("ssmode")) { ssMode = server.arg("ssmode").toInt() == 1 ? 1 : 0; savePrefs(); }
+  if (server.hasArg("wifiauto")) { wifiAutoMin = constrain(server.arg("wifiauto").toInt(), 0, 60); lastAppAt = millis(); savePrefs(); }
   if (server.hasArg("sswake")) { ssWake = constrain(server.arg("sswake").toInt(), 0, 7); savePrefs(); }
   if (server.hasArg("apname") || server.hasArg("apdefault")) {   // the meter's own WiFi name / password
     bool def = server.hasArg("apdefault");
@@ -7304,7 +7313,7 @@ void startMdns() {                         // lets an iPhone use http://pocketsp
 }
 
 void wifiStart() {
-  wifiOn = true; staLostAt = 0; apOffAt = 0; joinFromPhone = false;
+  wifiOn = true; staLostAt = 0; apOffAt = 0; joinFromPhone = false; lastAppAt = millis();
   WiFi.persistent(false);                  // passwords live in our own settings, not the WiFi chip's
   if (!beginJoinSaved()) { startAP(false); netMode = NET_AP; }
   startServer();
@@ -10313,6 +10322,7 @@ void handleUpdateDone() {
 
 // ---------------- Setup / loop ----------------
 void setup() {
+  setCpuFrequencyMhz(160);                 // plenty for the meter, and easier on the battery than 240
   Serial.begin(115200);
   pinMode(PIN_NEO_POWER, OUTPUT); digitalWrite(PIN_NEO_POWER, LOW);   // on-board NeoPixel off
   pinMode(PIN_MIC_GND, OUTPUT);   digitalWrite(PIN_MIC_GND, LOW);     // mic ground
@@ -10328,6 +10338,7 @@ void setup() {
   if (redFrom <= amberFrom) { amberFrom = DEFAULT_AMBER; redFrom = DEFAULT_RED; }
   brightness = constrain(prefs.getUChar("bri", DEFAULT_BRIGHTNESS), 1, 16);
   wifiOn = prefs.getBool("wifi", true);
+  wifiAutoMin = prefs.getUChar("wofm", 10);
   limOn = prefs.getBool("limOn", false);
   limDb = constrain(prefs.getUChar("limDb", 100), 60, 125);
   limWin = constrain(prefs.getUChar("limWin", 2), 0, 2);
@@ -10484,6 +10495,9 @@ void loop() {
   handleSerial();
   if (logoShowReq) { logoShowReq = false; showStartLogo(); lastFrameOk = false; }   // phone asked to see the logo
   if (wifiOn) { inServer = true; server.handleClient(); inServer = false; netService(now); }
+  if (wifiOn && wifiAutoMin && netMode == NET_AP && now - lastAppAt > (uint32_t)wifiAutoMin * 60000UL) {   // no app for a while: save battery
+    wifiStop(); toast("WiFi off", "Hold 3 s to turn on", 3000);   // not saved: WiFi is back on after a restart
+  }
   if (wifiOffAt && (int32_t)(now - wifiOffAt) >= 0) { wifiOffAt = 0; wifiStop(); savePrefs(); toast("WiFi off", "Hold 3 s to turn on", 1500); }
   if (apRestartAt && (int32_t)(now - apRestartAt) >= 0) {           // new name / password for the meter's own WiFi
     apRestartAt = 0;

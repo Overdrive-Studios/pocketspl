@@ -1,3 +1,4 @@
+New: WiFi turns itself off when the phone app has not been open for a while (default 10 minutes; change it in Settings > WiFi > WiFi power). Hold the button 3 s to turn it back on. Longer battery life: the processor runs a little slower (you won't notice) and new meters start at normal full brightness (Outdoor is still at the top of the slider).
 Changed: new meters (and meters after a factory reset) start at the brightest setting.
 New: Outdoor brightness. Slide Brightness all the way up (Settings > General > Display) for a brighter screen in daylight. It uses more battery.
 Changed: the heat warning and automatic shut-down have been removed. The inside temperature now shows in Settings > General > About and help.
