@@ -6642,18 +6642,20 @@ bool oscParseFloat(const uint8_t* b, int len, String& addr, float& v) {
   uint32_t u = ((uint32_t)b[i] << 24) | ((uint32_t)b[i + 1] << 16) | ((uint32_t)b[i + 2] << 8) | b[i + 3]; memcpy(&v, &u, 4); return true;
 }
 // ---- MIDI over TCP (A&H): small parser that understands running status ----
-struct MidiIn { uint8_t st = 0, d[2]; int n = 0; uint8_t nrpnM = 0, nrpnL = 0, vc = 0; bool inSx = false; };
-// calls back with (channel, nrpnMsb, nrpnLsb, valueCoarse, valueFine or 0xFF) when a value arrives
-template <typename F> void midiFeed(MidiIn& m, uint8_t c, F cb) {
-  if (c == 0xF0) { m.inSx = true; return; } if (m.inSx) { if (c == 0xF7) m.inSx = false; return; }
-  if (c & 0x80) { m.st = c; m.n = 0; return; }
-  if ((m.st & 0xF0) != 0xB0) return;
-  m.d[m.n++] = c; if (m.n < 2) return; m.n = 0;
-  uint8_t cc = m.d[0], v = m.d[1], ch = m.st & 0x0F;
-  if (cc == 0x63) m.nrpnM = v; else if (cc == 0x62) m.nrpnL = v;
-  else if (cc == 0x06) { m.vc = v; cb(ch, m.nrpnM, m.nrpnL, v, 0xFF); }
-  else if (cc == 0x26) cb(ch, m.nrpnM, m.nrpnL, m.vc, v);
-}
+struct MidiIn {
+  uint8_t st = 0, d[2]; int n = 0; uint8_t nrpnM = 0, nrpnL = 0, vc = 0; bool inSx = false;
+  // calls back with (channel, nrpnMsb, nrpnLsb, valueCoarse, valueFine or 0xFF) when a value arrives
+  template <typename F> void feed(uint8_t c, F cb) {
+    if (c == 0xF0) { inSx = true; return; } if (inSx) { if (c == 0xF7) inSx = false; return; }
+    if (c & 0x80) { st = c; n = 0; return; }
+    if ((st & 0xF0) != 0xB0) return;
+    d[n++] = c; if (n < 2) return; n = 0;
+    uint8_t cc = d[0], v = d[1], ch = st & 0x0F;
+    if (cc == 0x63) nrpnM = v; else if (cc == 0x62) nrpnL = v;
+    else if (cc == 0x06) { vc = v; cb(ch, nrpnM, nrpnL, v, 0xFF); }
+    else if (cc == 0x26) cb(ch, nrpnM, nrpnL, vc, v);
+  }
+};
 void mixLoad() {
   mixOn = prefs.getBool("mixOn", false); mixKind = min((int)prefs.getUChar("mixKind", 0), MX_KINDS - 1); mixIp = prefs.getString("mixIp", "");
   mixTgt = prefs.getUChar("mixTgt", 0); mixIdx = prefs.getUChar("mixIdx", 1); mixStepDb = prefs.getUChar("mixStep", 1);
@@ -6696,7 +6698,7 @@ void mixTask(void*) {
         else { dlParam(off, want); uint8_t chn = (mixMidiCh - 1 + off) & 0x0F;
           uint8_t sx[] = {0xF0, 0, 0, 0x1A, 0x50, 0x10, 0x01, 0x00, chn, 0x05, 0x0B, 0x17, want, 0xF7}; c.write(sx, sizeof(sx)); }
         uint32_t t0 = millis(); MidiIn m;
-        while (millis() - t0 < 3000 && got < 0) { while (c.available() && got < 0) midiFeed(m, c.read(), [&](uint8_t ch, uint8_t M, uint8_t L, uint8_t vc, uint8_t vf) {
+        while (millis() - t0 < 3000 && got < 0) { while (c.available() && got < 0) m.feed(c.read(), [&](uint8_t ch, uint8_t M, uint8_t L, uint8_t vc, uint8_t vf) {
               if (vf == 0xFF && M == want && L == 0x17) got = vc; }); delay(5); }
         if (got < 0) return MIX_NOLEVEL;
         return (int)roundf((mixKind == MX_QU ? quToDb(got) : dlToDb(got)) * 100); }
@@ -6753,7 +6755,7 @@ void mixTask(void*) {
       if (now - lastPoll > 3000) { lastPoll = now; int lv = readLevel(); if (lv != MIX_NOLEVEL && abs(lv - lastSet) > 30) { mixBase = lv; lastSet = lv; mixCut = 0; } }
     } else {
       uint8_t pm = 0, pl = 0, qch = 0, off = 0; if (mixKind == MX_SQ) sqParam(pm, pl); else if (mixKind == MX_QU) quParam(qch); else dlParam(off, qch);
-      while (c.available()) midiFeed(mi, c.read(), [&](uint8_t ch, uint8_t M, uint8_t L, uint8_t vc, uint8_t vf) {
+      while (c.available()) mi.feed(c.read(), [&](uint8_t ch, uint8_t M, uint8_t L, uint8_t vc, uint8_t vf) {
         if (now - lastSent < 1500) return;                 // our own change echoing back
         if (mixKind == MX_SQ && M == pm && L == pl && vf == 0xFF) { mixCut = 0; }
         if (mixKind != MX_SQ && M == qch && L == 0x17 && vf == 0xFF) { int lv = (int)roundf((mixKind == MX_QU ? quToDb(vc) : dlToDb(vc)) * 100); if (abs(lv - lastSet) > 60) { mixBase = lv; lastSet = lv; mixCut = 0; } }
