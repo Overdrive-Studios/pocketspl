@@ -1,3 +1,4 @@
+Changed: new meters (and meters after a factory reset) start at the brightest setting.
 New: Outdoor brightness. Slide Brightness all the way up (Settings > General > Display) for a brighter screen in daylight. It uses more battery.
 Changed: the heat warning and automatic shut-down have been removed. The inside temperature now shows in Settings > General > About and help.
 Changed: a start-up logo now fills the whole screen (zoomed to fit edge to edge). Upload your logo again to see it.

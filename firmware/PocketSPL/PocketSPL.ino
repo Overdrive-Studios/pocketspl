@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.55"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.56"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -209,7 +209,7 @@ bool fsOk = false;                          // flash storage for saved gig logs 
 volatile uint32_t micFlatSince = 0;         // when the mic signal went completely flat (0 = it's fine)
 bool lastDenied = false, lastPinOk = false; // for the next reply to the phone
 const float   DEFAULT_CAL_OFFSET = 0.0f;
-const uint8_t DEFAULT_BRIGHTNESS = 10;     // 1..15
+const uint8_t DEFAULT_BRIGHTNESS = 16;     // 1..15 normal, 16 = Outdoor (brightest). New meters start at the brightest.
 const uint8_t DEFAULT_THEME = 0;           // 0 = Clean (the new look), 1 = Studio (changeable on the phone)
 const int     DEFAULT_AMBER = 85, DEFAULT_RED = 95;
 const float   BAR_MIN_DB = 60.0f, BAR_MAX_DB = 110.0f;
