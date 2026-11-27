@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.53"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.54"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3565,26 +3565,16 @@ uint32_t plugHoldUntil = 0;   // after the fast check sees USB plugged/unplugged
 // second. The charger lifts it; pulling the cable drops it straight away (and plugging in lifts it).
 // A step of 35 mV between one second and the next flips charging at once.
 float vRing[8]; uint8_t vN = 0, vHead = 0; uint32_t lastVFast = 0;
-// Heat cut-out: there's no sensor on the battery, so use the temperature inside the ESP32 chip (it runs
-// 10-20 C above what's around it). If it stays at the limit for 10 s, save the gig log and shut the meter
-// down. The Feather's charger is hardware and keeps charging while USB is in, so the screen says to unplug.
-float chipC = 0; bool caseHot = false; uint32_t lastTempAt = 0; uint8_t hotCount = 0;
-const float HOT_ON_C = 65.0f;
+// Inside temperature (the ESP32 chip's own sensor, runs 10-20 C above what's around it). Shown on the phone
+// only, no warnings or cut-outs: it's there to find out what normal looks like before setting any limit.
+float chipC = 0; uint32_t lastTempAt = 0;
 void powerOff(const char* l1, const char* l2, const char* hint = "Charge with USB-C");
-void saveCurrentLog(bool force);
 void heatTick(uint32_t now) {
   if (now - lastTempAt < 5000) return;
   lastTempAt = now;
   float t = temperatureRead();
   if (isnan(t) || t < -20 || t > 150) return;
   chipC = chipC == 0 ? t : chipC + (t - chipC) * 0.3f;     // smoothed
-  hotCount = chipC >= HOT_ON_C ? hotCount + 1 : 0;
-  caseHot = hotCount > 0;
-  if (hotCount >= 3) {                                     // ~10 s at the limit
-    Serial.printf("Too hot (%.0f C): shutting down\n", chipC);
-    saveCurrentLog(true);
-    powerOff("Too hot", "Shut down", charging ? "Unplug USB, let it cool" : "Let it cool down");
-  }
 }
 
 void fastPlugCheck(uint32_t now) {
@@ -4626,6 +4616,7 @@ const char PAGE[] PROGMEM =
 "    <div class=\"row\"><label>Model</label><output id=\"modelVal\">--</output></div>\n"
 "    <div class=\"row\"><label>Serial number</label><output id=\"snVal\">--</output></div>\n"
 "    <div class=\"row\"><label>Software</label><output id=\"fwVer2\">--</output></div>\n"
+"    <div class=\"row\"><label>Inside temperature</label><output id=\"chipT\">--</output></div>\n"
 "    <button class=\"btn wide\" id=\"tcView\" type=\"button\">Terms of use</button>\n"
 "    <p class=\"note\">PocketSPL is made by Overdrive Music Studio. Help, updates and USB repair: <a href=\"https://overdrive-studios.github.io/pocketspl/\" target=\"_blank\" rel=\"noopener\">overdrive-studios.github.io/pocketspl</a></p>\n"
 "    <p class=\"note\"><a href=\"https://www.instagram.com/studio_overdrive/\" target=\"_blank\" rel=\"noopener\">Instagram</a>&emsp;<a href=\"https://www.facebook.com/profile.php?id=61558215059242\" target=\"_blank\" rel=\"noopener\">Facebook</a></p>\n"
@@ -4731,7 +4722,6 @@ const char PAGE[] PROGMEM =
 "  renderGig();\n"
 "  if(!held){\n"
 "  $(\"wLbl\").textContent = W[st.w]; $(\"rLbl\").textContent = st.r>=3 ? \"Fast\" : R[st.r];\n"
-"  if(st.hot && !window._hot) toast(\"The meter is running hot. Unplug USB and let it cool.\"); window._hot=!!st.hot;\n"
 "  const big = $(\"db\"); const isNum = !st.calst && !st.micfault && !st.warm && !st.over; big.classList.toggle(\"word\", !isNum && !st.warm);\n"
 "  if(st.calst){ big.textContent = \"CAL\"; big.style.color=\"var(--ink)\"; $(\"unit\").textContent = st.calst==1?\"Fit the 94 dB calibrator…\":\"Measuring…\"; }\n"
 "  else if(st.micfault){ big.textContent=\"MIC FAULT\"; big.style.color=\"var(--red)\"; $(\"unit\").textContent=\"No signal from the mic. Check its 5 wires.\"; }\n"
@@ -5391,6 +5381,7 @@ const char PAGE[] PROGMEM =
 "  $(\"unlockRow\").hidden=open; $(\"unlockedActs\").hidden=!(locked&&pinVerified);\n"
 "  $(\"lockState\").textContent = pinVerified ? \"Locked, but unlocked on this phone until you close the page.\" : \"Locked. Enter the PIN to change settings.\";\n"
 "  $(\"snVal\").textContent=st.sn||\"--\"; $(\"modelVal\").textContent=st.model?\"PocketSPL \"+st.model+(st.board?\" · \"+st.board+\" board\":\"\"):\"--\"; $(\"fwVer2\").textContent=st.fw?\"v\"+st.fw:\"--\";\n"
+"  $(\"chipT\").textContent=st.chipc?st.chipc+\" °C\":\"--\";\n"
 "  const fc=st.fcal; $(\"fcalBox\").hidden = fc===null||fc===undefined;\n"
 "  if(fc!==null&&fc!==undefined){ $(\"fcalVal\").textContent=(fc>=0?\"+\":\"\")+fc.toFixed(1)+\" dB\"; $(\"fcalBack\").disabled=Math.abs(fc-st.cal)<0.005; }\n"
 "}\n"
@@ -5962,7 +5953,6 @@ void sendState() {
   s += "\"latest\":\""; s += latestFw; s += "\",";
   s += "\"lock\":"; s += lockPin.length() ? "true," : "false,";
   s += "\"micfault\":"; s += micFaulty() ? "true," : "false,";
-  s += "\"hot\":"; s += caseHot ? "true," : "false,";
   s += "\"chipc\":"; s += String((int)(chipC + 0.5f)); s += ",";
   s += "\"fs\":"; s += fsOk ? "true," : "false,";
   s += "\"logo\":"; s += hasLogo() ? "true," : "false,";
