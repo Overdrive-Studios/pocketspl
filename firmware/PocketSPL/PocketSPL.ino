@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.62"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.63"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -175,8 +175,14 @@ const int NIGHT_QUIET_DB10 = 600, NIGHT_QUIET_MIN = 120;   // ... and it's over 
 // clock + on/off schedule (wired model), see "Clock + on/off schedule" further down
 int64_t clockBaseMs = 0; uint32_t clockBaseMillis = 0; bool clockSet = false;
 String tzPosix = "AEST-10";                 // time zone rule (POSIX), from the phone; default Queensland
-const int SCH_MAX = 8;                      // up to 8 sessions a week
+const int SCH_MAX = 24;                     // up to 24 events: weekly ones and ones on a date
+const int SCH_NAME = 21;                    // event name, up to 20 characters
 int schN = 0; uint8_t schDay[SCH_MAX]; uint16_t schOnM[SCH_MAX], schOffM[SCH_MAX];   // day 0 = Sunday, minutes from midnight
+uint32_t schDate[SCH_MAX];                  // 0 = every week on schDay, else one date as yyyymmdd
+uint8_t schLim[SCH_MAX];                    // 255 = normal limit, 0 = limit alarm off, 60..125 = limit in dB for this event
+char schName[SCH_MAX][SCH_NAME];
+bool limOverride = false; bool baseLimOn = false; int baseLimDb = 100;
+int curEvent = -1; char pendingMark[SCH_NAME] = ""; volatile bool pendingMarkSet = false;
 bool schEnabled = false;
 volatile bool standby = false;              // outside the schedule: no logging, screen dark
 uint32_t standbyShowUntil = 0;              // a press in standby shows the standby screen for a few seconds
@@ -184,7 +190,9 @@ int weekMinuteNow();
 void fmtWeekMinute(int wm, char* out, size_t n);
 String scheduleString();
 bool scheduleActive();
-int nextChange(int wm);
+long nextChange(long T);
+long localMinNow();
+void fmtLocalMin(long T, char* out, size_t n);
 bool parseSchedule(const String& in);
 // alerts (see "Alerts" further down)
 bool alOn = false, alBack = false;
@@ -3626,7 +3634,7 @@ void savePrefs() {
   prefs.putUChar("w", wMode); prefs.putUChar("r", rMode); prefs.putFloat("cal", calOffset);
   prefs.putUChar("amb", amberFrom); prefs.putUChar("red", redFrom);
   prefs.putUChar("bri", brightness); prefs.putBool("wifi", wifiOn); prefs.putUChar("wofm", wifiAutoMin);
-  prefs.putBool("limOn", limOn); prefs.putUChar("limDb", limDb); prefs.putUChar("limWin", limWin); prefs.putUChar("limW", limW);
+  prefs.putBool("limOn", limOverride ? baseLimOn : limOn); prefs.putUChar("limDb", limOverride ? baseLimDb : limDb); prefs.putUChar("limWin", limWin); prefs.putUChar("limW", limW);
   prefs.putBool("ssOn", ssOn); prefs.putUShort("ssSecs", ssSecs); prefs.putUChar("ssMode", ssMode); prefs.putUChar("ssWk", ssWake);
   prefs.putUChar("theme", theme);
 }
@@ -3888,7 +3896,8 @@ const char PAGE[] PROGMEM =
 "input[type=range]{width:55%;accent-color:var(--ink)}\n"
 ".check{display:flex;gap:10px;align-items:center;font-size:16px;margin:12px 0}\n"
 ".schrow{display:grid;grid-template-columns:auto 1fr auto 1fr auto;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--rule)}\n"
-".schrow select{grid-column:1/5}\n"
+".schrow select.sd{grid-column:1/5}.schrow .wide{grid-column:1/6}.schrow input.dt{grid-column:1/6}\n"
+".cal{margin-top:8px}.cal div{display:grid;grid-template-columns:92px 1fr;gap:8px;padding:7px 0;border-bottom:1px solid var(--rule);font-size:14px}.cal b{font-weight:600}.cal .off{color:var(--mute)}\n"
 ".schrow select,.schrow input{background:var(--recess);border:1px solid var(--rule);color:var(--ink);border-radius:var(--r-ctl);padding:10px 6px;font:500 15px \"Barlow SC\",sans-serif;width:100%;min-width:0}\n"
 ".schrow span{font-size:14px;color:var(--mute)}\n"
 ".schrow .x{padding:8px 11px}\n"
@@ -4411,7 +4420,7 @@ const char PAGE[] PROGMEM =
 "    </div>\n"
 "    <div class=\"mgroup\">\n"
 "      <button type=\"button\" class=\"mrow\" data-go=\"logo\"><i class=\"ic\" style=\"background:#bf5af2\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"5\" width=\"18\" height=\"14\" rx=\"2\"/><circle cx=\"9\" cy=\"10\" r=\"1.5\"/><path d=\"M21 16l-5-5-8 8\"/></svg></i><b>Start-up logo</b><span id=\"sum_logo\"></span></button>\n"
-"      <button type=\"button\" class=\"mrow wiredonly\" data-go=\"sched\"><i class=\"ic\" style=\"background:#64d2ff\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"M12 8v4l3 2\"/></svg></i><b>On/off schedule</b><span id=\"sum_sched\"></span></button>\n"
+"      <button type=\"button\" class=\"mrow wiredonly\" data-go=\"sched\"><i class=\"ic\" style=\"background:#64d2ff\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"M12 8v4l3 2\"/></svg></i><b>Scheduler</b><span id=\"sum_sched\"></span></button>\n"
 "      <button type=\"button\" class=\"mrow\" data-go=\"lock\"><i class=\"ic\" style=\"background:#8e8e93\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"5\" y=\"11\" width=\"14\" height=\"9\" rx=\"2\"/><path d=\"M8 11V8a4 4 0 0 1 8 0v3\"/></svg></i><b>Lock</b><span id=\"sum_lock\"></span></button>\n"
 "      <button type=\"button\" class=\"mrow\" data-go=\"about\"><i class=\"ic\" style=\"background:#8e8e93\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"M12 11v5M12 8h.01\"/></svg></i><b>About and help</b><span id=\"sum_about\"></span></button>\n"
 "    </div>\n"
@@ -4667,14 +4676,20 @@ const char PAGE[] PROGMEM =
 "  </div>\n"
 "\n"
 "  <div class=\"card wiredonly\" data-tab=\"settings\" data-sub=\"general\" data-page=\"sched\" id=\"schCard\">\n"
-"    <h2>On/off schedule</h2>\n"
+"    <h2>Scheduler</h2>\n"
+"    <p class=\"note\" id=\"schLocked\" hidden>The Scheduler is a plugin. Unlock it on the Plugins page (Settings → Plugins).</p>\n"
+"    <div id=\"schBody\">\n"
 "    <p class=\"note\" id=\"schState\"></p>\n"
 "    <div data-lock>\n"
 "    <label class=\"check\"><input type=\"checkbox\" id=\"schOn\"> Turn on and off by itself</label>\n"
 "    <div id=\"schList\"></div>\n"
-"    <div class=\"schbtns\"><button class=\"btn\" id=\"schAdd\" type=\"button\">Add a time</button><button class=\"btn\" id=\"schSave\" type=\"button\">Save schedule</button></div>\n"
+"    <div class=\"schbtns\"><button class=\"btn\" id=\"schAdd\" type=\"button\">Add an event</button><button class=\"btn\" id=\"schSave\" type=\"button\">Save schedule</button></div>\n"
 "    </div>\n"
-"    <p class=\"note\">An off time earlier than the on time finishes the next morning: Friday 6:30 pm to 2:00 am runs into Saturday. Outside these times the meter goes to standby: no logging, screen dark, WiFi still on. A press shows when it comes on next. Each session is saved as its own log.</p>\n"
+"    <h3>Next 14 days</h3>\n"
+"    <div class=\"cal\" id=\"schCal\"></div>\n"
+"    <p class=\"note\">Each event is either every week on a day, or on one date. An off time earlier than the on time finishes the next morning: 6:30 pm to 2:00 am runs into the next day. If an event on a date overlaps a weekly one, the dated one's name and limit are used.</p>\n"
+"    <p class=\"note\">Outside the events the meter goes to standby: no logging, no limit alarm or desk control, screen dark, WiFi still on. A press shows when it comes on next. Each session is saved as its own log, and the event's name goes in the log. Events on dates that have passed are removed when you save.</p>\n"
+"    </div>\n"
 "    <p class=\"note\" id=\"schClock\"></p>\n"
 "  </div>\n"
 "\n"
@@ -4786,10 +4801,11 @@ const char PAGE[] PROGMEM =
 "  {id:\"sq\",n:\"Allen & Heath SQ control\",d:\"SQ-5, SQ-6 and SQ-7. Turns the LR, a DCA, aux or matrix down when it's over the limit.\"},\n"
 "  {id:\"qu\",n:\"Allen & Heath Qu control\",d:\"Qu desks. Turns the main LR or a DCA down when it's over the limit.\"},\n"
 "  {id:\"dlive\",n:\"Allen & Heath dLive control\",d:\"dLive MixRack or surface. Turns a main or a DCA down when it's over the limit.\"},\n"
-"  {id:\"qsys\",n:\"Q-SYS control\",d:\"Any Q-SYS Core. Turns down a gain you name in your design when it's over the limit.\"}];\n"
+"  {id:\"qsys\",n:\"Q-SYS control\",d:\"Any Q-SYS Core. Turns down a gain you name in your design when it's over the limit.\"},\n"
+"  {id:\"sched\",n:\"Scheduler\",d:\"For installed (wired) meters. A calendar of events, weekly or on a date, that turns the meter on and off, names each event in the log, and can set its own limit.\",wired:1}];\n"
 "const MIXK=[[\"x32\",\"X32 / M32\"],[\"x32\",\"X-Air / MR\"],[\"sq\",\"SQ\"],[\"qu\",\"Qu\"],[\"dlive\",\"dLive\"],[\"qsys\",\"Q-SYS\"]];\n"
 "function plgListUi(){ const box=$(\"plgList\"); if(box.childElementCount) return;\n"
-"  PLG.forEach(p=>{ const d=document.createElement(\"div\"); d.className=\"plg\"; d.innerHTML=\"<h3>\"+p.n+\" <span class='pill' id='pb_\"+p.id+\"'>Locked</span></h3><p class='note'>\"+p.d+\"</p>\"+\n"
+"  PLG.forEach(p=>{ const d=document.createElement(\"div\"); d.className=\"plg\"; if(p.wired) d.classList.add(\"wiredonly\"); d.innerHTML=\"<h3>\"+p.n+\" <span class='pill' id='pb_\"+p.id+\"'>Locked</span></h3><p class='note'>\"+p.d+\"</p>\"+\n"
 "      \"<div class='pinrow' id='pu_\"+p.id+\"'><input placeholder='Paste your licence code' autocomplete='off' autocapitalize='off' spellcheck='false' aria-label='Licence code for \"+p.n+\"'><button class='btn' type='button'>Unlock</button></div>\";\n"
 "    const inp=d.querySelector(\"input\"); d.querySelector(\"button\").onclick=async()=>{ const code=inp.value.trim(); if(!code){ toast(\"Paste the licence code first\"); return; }\n"
 "      try{ const r=await fetch(\"/api/set?plg=\"+p.id+\"&lic=\"+encodeURIComponent(code),{cache:\"no-store\"});\n"
@@ -5482,41 +5498,77 @@ const char PAGE[] PROGMEM =
 "let schRows=null, schDirty=false;\n"
 "const m2t=m=>String(Math.floor(m/60)).padStart(2,\"0\")+\":\"+String(m%60).padStart(2,\"0\");\n"
 "const t2m=t=>{ const p=/^(\\d{1,2}):(\\d{2})/.exec(t||\"\"); return p? (+p[1])*60+(+p[2]) : -1; };\n"
-"function schParse(str){ return (str||\"\").split(\";\").filter(Boolean).map(x=>{ const v=x.split(\",\").map(Number); return {d:v[0],on:v[1],off:v[2]}; }); }\n"
+"const t12=m=>{ const h=Math.floor(m/60), mm=m%60; return (h%12||12)+\":\"+String(mm).padStart(2,\"0\")+(h<12?\" am\":\" pm\"); };\n"
+"const MONS=[\"Jan\",\"Feb\",\"Mar\",\"Apr\",\"May\",\"Jun\",\"Jul\",\"Aug\",\"Sep\",\"Oct\",\"Nov\",\"Dec\"];\n"
+"const ymdDay=v=>Date.UTC(Math.floor(v/10000),Math.floor(v/100)%100-1,v%100)/86400000;\n"
+"const dayYmd=dn=>{ const d=new Date(dn*86400000); return d.getUTCFullYear()*10000+(d.getUTCMonth()+1)*100+d.getUTCDate(); };\n"
+"const ymdIso=v=>{ const s=String(v); return s.slice(0,4)+\"-\"+s.slice(4,6)+\"-\"+s.slice(6,8); };\n"
+"const phoneToday=()=>Math.floor((Date.now()-new Date().getTimezoneOffset()*60000)/86400000);\n"
+"const cleanName=t=>(t||\"\").replace(/[;,\"\\\\\\u0000-\\u001f]/g,\"\").slice(0,20);\n"
+"function schParse(str){ return (str||\"\").split(\";\").filter(Boolean).map(x=>{ const v=x.split(\",\"), d=+v[0];\n"
+"  return {d:d>6?-1:d, date:d>6?d:0, on:+v[1], off:+v[2], lim:v.length>3?+v[3]:255, name:v.slice(4).join(\",\")}; }); }\n"
+"function limOpts(sel,cur){ const L=[[255,\"Normal limit\"],[0,\"No limit alarm\"]]; for(let v=75;v<=110;v++) L.push([v,\"Limit \"+v+\" dB\"]);\n"
+"  if(cur>=60&&cur<=125&&(cur<75||cur>110)) L.push([cur,\"Limit \"+cur+\" dB\"]);\n"
+"  L.forEach(([v,t])=>{ const o=document.createElement(\"option\"); o.value=v; o.textContent=t; if(v===cur) o.selected=true; sel.appendChild(o); }); }\n"
 "function schDraw(){\n"
 "  const box=$(\"schList\"); box.innerHTML=\"\";\n"
 "  schRows.forEach((r,i)=>{\n"
 "    const row=document.createElement(\"div\"); row.className=\"schrow\";\n"
-"    const sel=document.createElement(\"select\"); sel.setAttribute(\"aria-label\",\"Day\");\n"
-"    SORDER.forEach(d=>{ const o=document.createElement(\"option\"); o.value=d; o.textContent=SDAYS[d]; if(d===r.d) o.selected=true; sel.appendChild(o); });\n"
+"    const sel=document.createElement(\"select\"); sel.className=\"sd\"; sel.setAttribute(\"aria-label\",\"When\");\n"
+"    SORDER.forEach(d=>{ const o=document.createElement(\"option\"); o.value=d; o.textContent=\"Every \"+SDAYS[d]; if(!r.date&&d===r.d) o.selected=true; sel.appendChild(o); });\n"
+"    const od=document.createElement(\"option\"); od.value=\"date\"; od.textContent=\"On a date\"; if(r.date) od.selected=true; sel.appendChild(od);\n"
+"    const x=document.createElement(\"button\"); x.type=\"button\"; x.className=\"btn x\"; x.textContent=\"×\"; x.setAttribute(\"aria-label\",\"Remove\");\n"
+"    const dt=document.createElement(\"input\"); dt.type=\"date\"; dt.className=\"dt\"; dt.hidden=!r.date; if(r.date) dt.value=ymdIso(r.date); dt.setAttribute(\"aria-label\",\"Date\");\n"
 "    const on=document.createElement(\"input\"); on.type=\"time\"; on.value=m2t(r.on); on.setAttribute(\"aria-label\",\"On at\");\n"
 "    const onL=document.createElement(\"span\"); onL.textContent=\"On\";\n"
 "    const to=document.createElement(\"span\"); to.textContent=\"Off\";\n"
 "    const off=document.createElement(\"input\"); off.type=\"time\"; off.value=m2t(r.off); off.setAttribute(\"aria-label\",\"Off at\");\n"
-"    const x=document.createElement(\"button\"); x.type=\"button\"; x.className=\"btn x\"; x.textContent=\"×\"; x.setAttribute(\"aria-label\",\"Remove\");\n"
-"    sel.onchange=()=>{ r.d=+sel.value; schDirty=true; };\n"
-"    on.onchange=()=>{ r.on=t2m(on.value); schDirty=true; };\n"
-"    off.onchange=()=>{ r.off=t2m(off.value); schDirty=true; };\n"
+"    const nm=document.createElement(\"input\"); nm.className=\"wide\"; nm.maxLength=20; nm.value=r.name||\"\"; nm.placeholder=\"Name, e.g. Friday band (goes in the log)\"; nm.setAttribute(\"aria-label\",\"Event name\");\n"
+"    const lim=document.createElement(\"select\"); lim.className=\"wide\"; lim.setAttribute(\"aria-label\",\"Limit for this event\"); limOpts(lim,r.lim);\n"
+"    const ch=()=>{ schDirty=true; calDraw(); };\n"
+"    sel.onchange=()=>{ if(sel.value===\"date\"){ dt.hidden=false; if(!r.date){ r.date=dayYmd(phoneToday()); dt.value=ymdIso(r.date); } } else { r.date=0; r.d=+sel.value; dt.hidden=true; } ch(); };\n"
+"    dt.onchange=()=>{ const p=/^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(dt.value); r.date=p?+(p[1]+p[2]+p[3]):-1; ch(); };\n"
+"    on.onchange=()=>{ r.on=t2m(on.value); ch(); };\n"
+"    off.onchange=()=>{ r.off=t2m(off.value); ch(); };\n"
+"    nm.oninput=()=>{ const c=cleanName(nm.value); if(c!==nm.value) nm.value=c; r.name=c; ch(); };\n"
+"    lim.onchange=()=>{ r.lim=+lim.value; ch(); };\n"
 "    x.onclick=()=>{ schRows.splice(i,1); schDirty=true; schDraw(); };\n"
-"    row.append(sel,x,onL,on,to,off); box.appendChild(row);\n"
+"    row.append(sel,x,dt,onL,on,to,off,nm,lim); box.appendChild(row);\n"
 "  });\n"
-"  $(\"schAdd\").disabled = schRows.length>=8;\n"
+"  $(\"schAdd\").disabled = schRows.length>=24;\n"
+"  calDraw();\n"
+"}\n"
+"function evOnDay(r,dn){ return r.date ? r.date>0 && ymdDay(r.date)===dn : ((dn+4)%7)===r.d; }\n"
+"function calDraw(){\n"
+"  const box=$(\"schCal\"); if(!box||!schRows) return; box.innerHTML=\"\"; const t0=phoneToday();\n"
+"  for(let k=0;k<14;k++){ const dn=t0+k, d=new Date(dn*86400000);\n"
+"    const ev=schRows.filter(r=>r.on>=0&&r.off>=0&&evOnDay(r,dn)).sort((a,b)=>(b.date?1:0)-(a.date?1:0)||a.on-b.on);\n"
+"    const row=document.createElement(\"div\"); const a=document.createElement(\"b\");\n"
+"    a.textContent=(k===0?\"Today\":k===1?\"Tomorrow\":SDAYS[(dn+4)%7]+\" \"+d.getUTCDate()+\" \"+MONS[d.getUTCMonth()]);\n"
+"    const b=document.createElement(\"span\");\n"
+"    if(!ev.length){ b.className=\"off\"; b.textContent=\"Standby\"; }\n"
+"    else b.textContent=ev.map(r=>t12(r.on)+\" – \"+t12(r.off)+(r.name?\"  \"+r.name:\"\")+(r.lim===0?\" · no limit\":r.lim!==255?\" · \"+r.lim+\" dB\":\"\")).join(\"\\n\");\n"
+"    b.style.whiteSpace=\"pre-line\"; row.append(a,b); box.appendChild(row); }\n"
 "}\n"
 "function renderSchedule(){\n"
 "  document.body.classList.toggle(\"wired\",!!st.wired); $(\"logSaveNote\").textContent = st.wired ? \"Saved in the meter every 5 minutes (up to 24 hours), so a power cut loses at most 5 minutes.\" : \"Saved in the meter every minute (up to 24 hours), so switching off doesn't lose it.\";\n"
 "  if(!st.wired) return;\n"
+"  const unlocked=!!(st.plg&&st.plg.sched); $(\"schLocked\").hidden=unlocked; $(\"schBody\").hidden=!unlocked;\n"
+"  const ss=$(\"sum_sched\"); if(ss) ss.textContent=!unlocked?\"Locked\":st.schon&&st.sch?(st.standby?\"Standby\":\"On\"):\"Off\";\n"
+"  if(!unlocked) return;\n"
 "  if(!schDirty){ schRows=schParse(st.sch); schDraw(); }\n"
 "  $(\"schOn\").checked=!!st.schon;\n"
 "  let t=\"\";\n"
-"  if(st.schon && st.sch){ t = !st.clk ? \"Waiting for the time: it stays on until it knows it.\" : st.standby ? \"Standby now. Comes on \"+(st.next||\"--\")+\".\" : \"On now\"+(st.next?\". Goes to standby \"+st.next+\".\":\".\"); }\n"
+"  if(st.schon && st.sch){ t = !st.clk ? \"Waiting for the time: it stays on until it knows it.\" : st.standby ? \"Standby now. Comes on \"+(st.next||\"--\")+\".\" : \"On now\"+(st.ev?\": \"+st.ev:\"\")+(st.evlim&&st.lim?(st.lim.on?\" (limit \"+st.lim.db+\" dB)\":\" (no limit alarm)\"):\"\")+(st.next?\". Goes to standby \"+st.next+\".\":\".\"); }\n"
 "  else t = \"Off: the meter runs all the time.\";\n"
 "  $(\"schState\").textContent=t;\n"
-"  $(\"schClock\").textContent = st.clk ? \"Meter clock: \"+st.clock+\". Set by this phone, and from the internet when it's on the venue's WiFi.\" : \"The meter doesn't know the time yet. It gets it from this phone, or from the internet on the venue's WiFi.\";\n"
+"  $(\"schClock\").textContent = st.clk ? \"Meter clock: \"+st.clock+\". Set from the internet on the venue's WiFi, and by this phone.\" : \"The meter doesn't know the time yet. It gets it from the internet on the venue's WiFi, or from this phone.\";\n"
 "}\n"
-"$(\"schAdd\").onclick=()=>{ if(!schRows) schRows=[]; const last=schRows[schRows.length-1]; schRows.push(last?{d:(last.d+1)%7,on:last.on,off:last.off}:{d:5,on:1110,off:120}); schDirty=true; schDraw(); };\n"
+"$(\"schAdd\").onclick=()=>{ if(!schRows) schRows=[]; const last=schRows[schRows.length-1]; schRows.push(last&&!last.date?{d:(last.d+1)%7,date:0,on:last.on,off:last.off,lim:last.lim,name:\"\"}:{d:5,date:0,on:1110,off:120,lim:255,name:\"\"}); schDirty=true; schDraw(); };\n"
 "$(\"schSave\").onclick=async()=>{\n"
-"  for(const r of schRows){ if(r.on<0||r.off<0){ toast(\"Fill in every time\"); return; } if(r.on===r.off){ toast(\"On and off can't be the same time\"); return; } }\n"
-"  const q=schRows.map(r=>r.d+\",\"+r.on+\",\"+r.off).join(\";\");\n"
+"  for(const r of schRows){ if(r.on<0||r.off<0){ toast(\"Fill in every time\"); return; } if(r.on===r.off){ toast(\"On and off can't be the same time\"); return; } if(r.date<0){ toast(\"Pick a date for every dated event\"); return; } }\n"
+"  const today=phoneToday(); schRows=schRows.filter(r=>!r.date||ymdDay(r.date)>=today-1);\n"
+"  const q=schRows.map(r=>(r.date||r.d)+\",\"+r.on+\",\"+r.off+\",\"+r.lim+\",\"+cleanName(r.name)).join(\";\");\n"
 "  schDirty=false;\n"
 "  await set(\"sch=\"+encodeURIComponent(q)+\"&schon=\"+($(\"schOn\").checked||schRows.length?1:0), \"Schedule saved\");\n"
 "};\n"
@@ -6119,10 +6171,13 @@ void sendState() {
     s += "\"clk\":"; s += wm >= 0 ? "true," : "false,";
     if (wm >= 0) { fmtWeekMinute(wm, cb, sizeof(cb)); s += "\"clock\":\""; s += cb; s += "\","; }
     s += "\"schon\":"; s += schEnabled ? "true," : "false,";
-    s += "\"sch\":\""; s += scheduleString(); s += "\",";
+    s += "\"sch\":\""; s += jsonEsc(scheduleString()); s += "\",";
     s += "\"standby\":"; s += standby ? "true," : "false,";
-    int nx = (wm >= 0 && scheduleActive()) ? nextChange(wm) : -1;
-    if (nx >= 0) { fmtWeekMinute(nx, cb, sizeof(cb)); s += "\"next\":\""; s += cb; s += "\","; }
+    { long T = localMinNow(); s += "\"today\":"; s += String(T >= 0 ? T / 1440 : -1); s += ",";
+      s += "\"ev\":\""; s += (curEvent >= 0 && curEvent < schN) ? jsonEsc(schName[curEvent]) : String(""); s += "\",";
+      s += "\"evlim\":"; s += limOverride ? "true," : "false,"; }
+    long nx = (wm >= 0 && scheduleActive()) ? nextChange(localMinNow()) : -1;
+    if (nx >= 0) { fmtLocalMin(nx, cb, sizeof(cb)); s += "\"next\":\""; s += cb; s += "\","; }
   }
   s += "\"alon\":"; s += alOn ? "true," : "false,";
   s += "\"alback\":"; s += alBack ? "true," : "false,";
@@ -6426,7 +6481,7 @@ bool netOnline() { return netMode == NET_STA && WiFi.status() == WL_CONNECTED; }
 static const uint8_t LIC_PUB[65] = { 0x04, 0x01, 0x85, 0x62, 0x5e, 0x91, 0x6f, 0x7e, 0x80, 0xed, 0xbb, 0xc3, 0x3c, 0x95, 0x34, 0x99, 0x46, 0xcc, 0x50, 0xcf, 0x6d, 0x45, 0xe1, 0x90, 0xfc, 0x3c, 0x7c, 0xaf, 0xf6, 0xaf, 0xbf, 0x56, 0x10, 0x27, 0x49, 0x95, 0x62, 0x1c, 0x5d, 0x98, 0xfa, 0x0c, 0xee, 0xd0, 0x2e, 0x7a, 0xde, 0xf1, 0x56, 0xa2, 0x5c, 0x65, 0x32, 0xcc, 0x1f, 0xf8, 0x92, 0x6f, 0x30, 0x42, 0x53, 0x48, 0xd8, 0xb9, 0xf5 };
 struct PluginDef { const char* id; const char* name; };
 const PluginDef PLUGINS[] = { {"mtx", "Yamaha MTX control"}, {"x32", "Behringer / Midas control"}, {"sq", "Allen & Heath SQ control"},
-                               {"qu", "Allen & Heath Qu control"}, {"dlive", "Allen & Heath dLive control"}, {"qsys", "Q-SYS control"} };
+                               {"qu", "Allen & Heath Qu control"}, {"dlive", "Allen & Heath dLive control"}, {"qsys", "Q-SYS control"}, {"sched", "Scheduler"} };
 const int NUM_PLUGINS = sizeof(PLUGINS) / sizeof(PLUGINS[0]);
 bool plugOn[8] = {false};
 
@@ -6939,46 +6994,118 @@ int weekMinuteNow() {                       // minutes since Sunday 00:00 local 
   struct tm lt; localtime_r(&t, &lt);
   return lt.tm_wday * 1440 + lt.tm_hour * 60 + lt.tm_min;
 }
-bool inSession(int i, int wm) {             // session i covers week-minute wm? (off before on = ends next morning)
-  int st = schDay[i] * 1440 + schOnM[i];
-  int en = schDay[i] * 1440 + schOffM[i] + (schOffM[i] <= schOnM[i] ? 1440 : 0);
-  return (wm >= st && wm < en) || (wm + 10080 >= st && wm + 10080 < en);
+long daysFromCivil(int y, unsigned m, unsigned d) {   // days since 1970-01-01 (proleptic Gregorian)
+  y -= m <= 2; long era = (y >= 0 ? y : y - 399) / 400; unsigned yoe = (unsigned)(y - era * 400);
+  unsigned doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1; unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+  return era * 146097 + (long)doe - 719468;
 }
-bool inSchedule(int wm) { for (int i = 0; i < schN; i++) if (inSession(i, wm)) return true; return false; }
-bool scheduleActive() { return wiredModel && schEnabled && schN > 0; }
-int nextChange(int wm) {                    // week-minute when the on/off state next changes (-1 = never)
-  bool on = inSchedule(wm);
-  for (int d = 1; d <= 10080; d++) { int w = (wm + d) % 10080; if (inSchedule(w) != on) return w; }
+long localMinNow() {                        // minutes since 1970-01-01 00:00 local time, -1 = clock not set
+  if (!clockSet) return -1;
+  time_t t = (time_t)(clockNowMs() / 1000);
+  struct tm lt; localtime_r(&t, &lt);
+  return daysFromCivil(lt.tm_year + 1900, lt.tm_mon + 1, lt.tm_mday) * 1440L + lt.tm_hour * 60 + lt.tm_min;
+}
+long schDateDay(uint32_t ymd) { return daysFromCivil(ymd / 10000, (ymd / 100) % 100, ymd % 100); }
+bool evOnDay(int i, long dn) {              // does event i start on day number dn?
+  if (schDate[i]) return schDateDay(schDate[i]) == dn;
+  return (int)((dn + 4) % 7) == schDay[i];  // 1970-01-01 was a Thursday
+}
+bool evCovers(int i, long T) {              // event i is on at local minute T? (off before on = ends next morning)
+  long dn = T / 1440;
+  for (long sd = dn - 1; sd <= dn; sd++) {
+    if (!evOnDay(i, sd)) continue;
+    long st = sd * 1440 + schOnM[i], en = sd * 1440 + schOffM[i] + (schOffM[i] <= schOnM[i] ? 1440 : 0);
+    if (T >= st && T < en) return true;
+  }
+  return false;
+}
+int activeEvent(long T) {                   // the event running at T (one on a date wins over a weekly one), -1 = none
+  int best = -1;
+  for (int i = 0; i < schN; i++) if (evCovers(i, T)) { if (schDate[i]) return i; if (best < 0) best = i; }
+  return best;
+}
+bool inSchedule(long T) { return activeEvent(T) >= 0; }
+bool scheduleActive() { return wiredModel && pluginActive("sched") && schEnabled && schN > 0; }
+long nextChange(long T) {                   // local minute when on/off next changes (-1 = not in the next 60 days)
+  static long c[SCH_MAX * 24]; int n = 0; long dn = T / 1440;
+  auto add = [&](long v) { if (v > T && n < (int)(sizeof(c) / sizeof(c[0]))) c[n++] = v; };
+  for (int i = 0; i < schN; i++) {
+    long a = schDate[i] ? schDateDay(schDate[i]) : dn - 1, b = schDate[i] ? a : dn + 60;
+    if (schDate[i] && (a < dn - 1 || a > dn + 60)) continue;
+    for (long sd = a; sd <= b; sd++) {
+      if (!evOnDay(i, sd)) continue;
+      add(sd * 1440 + schOnM[i]); add(sd * 1440 + schOffM[i] + (schOffM[i] <= schOnM[i] ? 1440 : 0));
+      if (!schDate[i] && n > (int)(sizeof(c) / sizeof(c[0])) - 4) break;
+    }
+  }
+  for (int i = 1; i < n; i++) { long v = c[i]; int j = i - 1; while (j >= 0 && c[j] > v) { c[j + 1] = c[j]; j--; } c[j + 1] = v; }
+  bool on = inSchedule(T);
+  for (int i = 0; i < n; i++) if (inSchedule(c[i]) != on) return c[i];
   return -1;
+}
+const char* const MON_NAME[12] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+void fmtLocalMin(long T, char* out, size_t n) {   // "Fri 6:30 pm", or "Sat 12 Dec 6:30 pm" when it's more than 6 days away
+  long dn = T / 1440, now = localMinNow(); int h = (T % 1440) / 60, m = T % 60;
+  const char* day = DAY_NAME[(dn + 4) % 7];
+  if (now >= 0 && dn - now / 1440 > 6) {
+    time_t t = (time_t)dn * 86400; struct tm g; gmtime_r(&t, &g);
+    snprintf(out, n, "%s %d %s %d:%02d %s", day, g.tm_mday, MON_NAME[g.tm_mon], h % 12 == 0 ? 12 : h % 12, m, h < 12 ? "am" : "pm");
+  } else snprintf(out, n, "%s %d:%02d %s", day, h % 12 == 0 ? 12 : h % 12, m, h < 12 ? "am" : "pm");
 }
 void fmtWeekMinute(int wm, char* out, size_t n) {   // e.g. "Fri 6:30 pm"
   int h = (wm % 1440) / 60, m = wm % 60;
   snprintf(out, n, "%s %d:%02d %s", DAY_NAME[(wm / 1440) % 7], h % 12 == 0 ? 12 : h % 12, m, h < 12 ? "am" : "pm");
 }
-String scheduleString() {                   // "5,1110,120;6,1255,180"
+String scheduleString() {                   // "5,1110,120,255,Friday band;20261231,1200,120,95,New Year"
   String r;
-  for (int i = 0; i < schN; i++) { if (i) r += ";"; r += String(schDay[i]) + "," + String(schOnM[i]) + "," + String(schOffM[i]); }
+  for (int i = 0; i < schN; i++) {
+    if (i) r += ";";
+    r += String(schDate[i] ? schDate[i] : (uint32_t)schDay[i]) + "," + String(schOnM[i]) + "," + String(schOffM[i]) + "," + String(schLim[i]) + "," + schName[i];
+  }
   return r;
 }
-bool parseSchedule(const String& in) {     // checks it all first, then replaces the schedule
-  uint8_t d[SCH_MAX]; uint16_t on[SCH_MAX], off[SCH_MAX]; int n = 0;
+bool parseSchedule(const String& in) {     // checks it all first, then replaces the schedule (old 3-field entries still load)
+  struct E { uint8_t d; uint32_t date; uint16_t on, off; uint8_t lim; char nm[SCH_NAME]; };
+  static E e[SCH_MAX]; int n = 0;
+  if (in.length() > 1400) return false;
   const char* p = in.c_str();
-  if (in.length() > 120) return false;
   while (*p) {
     const char* semi = strchr(p, ';'); size_t len = semi ? (size_t)(semi - p) : strlen(p);
     if (len) {
-      char part[24]; if (len >= sizeof(part)) return false;
+      char part[64]; if (len >= sizeof(part) || n >= SCH_MAX) return false;
       memcpy(part, p, len); part[len] = 0;
-      int a, b, c; char extra;
-      if (n >= SCH_MAX || sscanf(part, "%d,%d,%d%c", &a, &b, &c, &extra) != 3) return false;
-      if (a < 0 || a > 6 || b < 0 || b > 1439 || c < 0 || c > 1439 || b == c) return false;
-      d[n] = a; on[n] = b; off[n] = c; n++;
+      long f[4] = {0, 0, 0, 255}; int k = 0; char* q = part; const char* nm = "";
+      while (k < 5) {
+        char* cm = strchr(q, ',');
+        if (k == 4) { nm = q; break; }
+        if (cm) *cm = 0;
+        char* end; f[k] = strtol(q, &end, 10); if (end == q || *end) return false;
+        k++; if (!cm) break; q = cm + 1;
+      }
+      if (k < 3) return false;
+      long d = f[0];
+      bool dated = d >= 20200101 && d <= 20991231;
+      if (!dated && (d < 0 || d > 6)) return false;
+      if (dated && ((d / 100) % 100 < 1 || (d / 100) % 100 > 12 || d % 100 < 1 || d % 100 > 31)) return false;
+      if (f[1] < 0 || f[1] > 1439 || f[2] < 0 || f[2] > 1439 || f[1] == f[2]) return false;
+      if (!(f[3] == 255 || f[3] == 0 || (f[3] >= 60 && f[3] <= 125))) return false;
+      if (strlen(nm) >= SCH_NAME) return false;
+      for (const char* c = nm; *c; c++) if ((uint8_t)*c < 32 || *c == '"' || *c == '\\') return false;
+      e[n].d = dated ? 0 : (uint8_t)d; e[n].date = dated ? (uint32_t)d : 0; e[n].on = f[1]; e[n].off = f[2]; e[n].lim = (uint8_t)f[3];
+      strlcpy(e[n].nm, nm, SCH_NAME); n++;
     }
     p += len; if (*p == ';') p++;
   }
   schN = n;
-  for (int i = 0; i < n; i++) { schDay[i] = d[i]; schOnM[i] = on[i]; schOffM[i] = off[i]; }
+  for (int i = 0; i < n; i++) { schDay[i] = e[i].d; schDate[i] = e[i].date; schOnM[i] = e[i].on; schOffM[i] = e[i].off; schLim[i] = e[i].lim; strlcpy(schName[i], e[i].nm, SCH_NAME); }
   return true;
+}
+// per-event limit: while an event with its own limit runs, limOn/limDb follow it; the normal ones come back after
+void applyEventLimit(int ev) {
+  uint8_t L = ev >= 0 ? schLim[ev] : 255;
+  if (L == 255) { if (limOverride) { limOn = baseLimOn; limDb = baseLimDb; limOverride = false; limState = 0; } return; }
+  if (!limOverride) { baseLimOn = limOn; baseLimDb = limDb; limOverride = true; }
+  limOn = L != 0; if (L) limDb = L; limState = 0;
 }
 
 #ifdef ARDUINO_ARCH_ESP32
@@ -6998,8 +7125,13 @@ void scheduleTick(uint32_t now) {           // once a second: go to standby / co
   if (now - last < 1000) return;
   last = now;
   ntpPoll();
-  int wm = weekMinuteNow();
-  bool want = scheduleActive() && wm >= 0 && !inSchedule(wm);   // no clock = stay on
+  long T = localMinNow();
+  bool want = scheduleActive() && T >= 0 && !inSchedule(T);     // no clock = stay on
+  int ev = (scheduleActive() && T >= 0) ? activeEvent(T) : -1;
+  if (ev != curEvent) {                     // a new event started (or the last one finished)
+    curEvent = ev; applyEventLimit(ev);
+    if (ev >= 0 && schName[ev][0]) { strlcpy(pendingMark, schName[ev], SCH_NAME); pendingMarkSet = true; }
+  }
   if (want && !standby) {
     Serial.println("Schedule: standby (session saved)");
     saveCurrentLog(true); archiveCurrentLog();
@@ -8020,6 +8152,10 @@ void gigSecond(const float ms[3]) {        // one finished second
 void gigBlock(const float blockSum[3], int n, float peakC) {
   if (newLogRequested) { gigReset(); newLogRequested = false; }
   if (standby) return;                     // outside the on/off schedule: nothing is logged
+  if (pendingMarkSet && markCount < MARK_MAX) {   // event name from the schedule goes in the log
+    marks[markCount].sec = logSecs; strncpy(marks[markCount].text, pendingMark, 24); marks[markCount].text[24] = 0; markCount++;
+    pendingMarkSet = false;
+  }
   for (int w = 0; w < 3; w++) secSum[w] += blockSum[w];
   secN += n;
   doseE += blockSum[W_A] / FS; doseSecs += (double)n / FS;
@@ -10150,9 +10286,9 @@ void clStandby(uint32_t now) {
   char b[32], nb[40];
   canvas.fillScreen(C_BG);
   textAAc(FT17, "Standby", 64, 54, CL_TEXT);
-  int wm = weekMinuteNow(), nx = wm >= 0 ? nextChange(wm) : -1;
+  int wm = weekMinuteNow(); long nx = wm >= 0 ? nextChange(localMinNow()) : -1;
   textAAc(FT9, "COMES ON", 64, 76, CL_TEXT3);
-  if (nx >= 0) { fmtWeekMinute(nx, b, sizeof(b)); textAAc(FT13, b, 64, 93, CL_TEXT); }
+  if (nx >= 0) { fmtLocalMin(nx, b, sizeof(b)); textAAc(nx - localMinNow() > 6 * 1440 ? FT9 : FT13, b, 64, 93, CL_TEXT); }
   if (wm >= 0) { fmtWeekMinute(wm, b, sizeof(b)); snprintf(nb, sizeof(nb), "Now %s", b); textAAc(FT9, nb, 64, 116, CL_TEXT3); }
 }
 
@@ -10594,10 +10730,10 @@ void drawStandby(uint32_t now) {           // wired model, outside the schedule 
   canvas.setFont(L.big); canvas.setTextColor(C_TEXT);
   textCentered("Standby", 64, 54);
   canvas.setFont(L.small);
-  int wm = weekMinuteNow(), nx = wm >= 0 ? nextChange(wm) : -1;
+  int wm = weekMinuteNow(); long nx = wm >= 0 ? nextChange(localMinNow()) : -1;
   canvas.setTextColor(C_DIM); textCentered("Comes on", 64, 78);
   canvas.setTextColor(C_ACCENT);
-  if (nx >= 0) { fmtWeekMinute(nx, b, sizeof(b)); textCentered(b, 64, 94); }
+  if (nx >= 0) { fmtLocalMin(nx, b, sizeof(b)); textCentered(b, 64, 94); }
   if (wm >= 0) { char nb[40]; fmtWeekMinute(wm, b, sizeof(b)); snprintf(nb, sizeof(nb), "Now %s", b); canvas.setTextColor(C_DIM); textCentered(nb, 64, 118); }
 }
 // Sends only the parts of the screen that changed (in 8-row bands) and answers the phone

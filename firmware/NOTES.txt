@@ -1,3 +1,4 @@
+v1.1.63 - Scheduler plugin for wired meters: calendar of weekly and dated events that turn the meter on and to standby, put the event name in the log, and can set their own limit or turn the limit alarm off.
 v1.1.62 - Mixer control plugins: Behringer/Midas (X32, M32, X-Air, MR), Allen & Heath SQ, Qu and dLive, and Q-SYS. Each is unlocked with its own licence code on the Plugins page.
 New: Plugins page (Settings > General > Plugins). Paid add-ons are unlocked with a licence code made for your meter. First plugin: Yamaha MTX control - turns a zone or output on an MTX3 / MTX5-D down a step at a time when the room is over the limit, and back up once it has settled.
 New: the phone RTA now labels every one of the 31 bands (20 Hz to 20 kHz), with the octaves in bold. On a narrow screen the labels turn on their side so they all fit.
