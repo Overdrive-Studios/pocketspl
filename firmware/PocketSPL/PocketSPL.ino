@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.63"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.64"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -5848,7 +5848,7 @@ const char PAGE[] PROGMEM =
 "}\n"
 "document.querySelectorAll(\"#segSub button\").forEach(b=>b.onclick=()=>{ navDir=\"tab\"; showSub(b.dataset.s); });\n"
 "/* General: a list that opens one page at a time */\n"
-"const GPAGES={saved:\"Saved networks\",add:\"Add a network\",ap:\"Meter's own WiFi\",display:\"Screen\",alarm:\"Limit alarm\",alerts:\"Alerts\",cal:\"Calibration\",logo:\"Start-up logo\",sched:\"On/off schedule\",lock:\"Lock\",about:\"About and help\"};\n"
+"const GPAGES={saved:\"Saved networks\",add:\"Add a network\",ap:\"Meter's own WiFi\",display:\"Screen\",alarm:\"Limit alarm\",alerts:\"Alerts\",plugins:\"Plugins\",cal:\"Calibration\",logo:\"Start-up logo\",sched:\"Scheduler\",lock:\"Lock\",about:\"About and help\"};\n"
 "let gpage=\"\", navDir=\"\";\n"
 "const noMotion=()=>{ try{ return matchMedia(\"(prefers-reduced-motion: reduce)\").matches; }catch(e){ return false; } };\n"
 "function animateIn(dir){        // cards slide in like an iPhone: from the right going in, from the left coming back\n"
