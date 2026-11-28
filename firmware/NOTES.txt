@@ -1,3 +1,4 @@
+v1.1.65 - WiFi auto-off never applies to wired meters (setting hidden on them).
 v1.1.64 - Fix: the Plugins page now opens from Settings.
 v1.1.63 - Scheduler plugin for wired meters: calendar of weekly and dated events that turn the meter on and to standby, put the event name in the log, and can set their own limit or turn the limit alarm off.
 v1.1.62 - Mixer control plugins: Behringer/Midas (X32, M32, X-Air, MR), Allen & Heath SQ, Qu and dLive, and Q-SYS. Each is unlocked with its own licence code on the Plugins page.

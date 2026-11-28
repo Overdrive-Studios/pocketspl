@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.64"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.65"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -3905,7 +3905,7 @@ const char PAGE[] PROGMEM =
 "#graph{touch-action:pan-y}\n"
 "canvas.logoprev{width:128px;height:128px;aspect-ratio:1/1;image-rendering:pixelated;background:#000;border-radius:4px;margin:4px auto 12px}\n"
 "#schState{font-weight:600}\n"
-"body:not(.wired) .wiredonly{display:none!important}\n"
+"body:not(.wired) .wiredonly{display:none!important}body.wired .battonly{display:none!important}\n"
 ".check input{width:20px;height:20px;accent-color:var(--ink)}\n"
 "input[type=text],input[type=password],input:not([type]),.joinform input,.markform input,.addr input,.pinrow input{background:var(--recess);border:1px solid var(--rule);color:var(--ink);border-radius:var(--r-ctl);padding:11px 12px;font:500 16px \"Barlow SC\",sans-serif;width:100%;min-width:0}\n"
 "input:focus{outline:none;border-color:var(--mute)}\n"
@@ -4618,7 +4618,7 @@ const char PAGE[] PROGMEM =
 "  <div class=\"card\" data-tab=\"settings\" data-sub=\"wifi\" data-menu data-lock>\n"
 "    <h2>WiFi power</h2>\n"
 
-"    <div class=\"ctl\"><span>Turn off by itself</span><div class=\"seg\" id=\"segWofm\"><button data-v=\"0\">Never</button><button data-v=\"5\">5 min</button><button data-v=\"10\">10 min</button><button data-v=\"15\">15 min</button><button data-v=\"30\">30 min</button></div></div>\n"
+"    <div class=\"ctl battonly\"><span>Turn off by itself</span><div class=\"seg\" id=\"segWofm\"><button data-v=\"0\">Never</button><button data-v=\"5\">5 min</button><button data-v=\"10\">10 min</button><button data-v=\"15\">15 min</button><button data-v=\"30\">30 min</button></div></div>\n"
 "    <p class=\"note\">WiFi uses the most battery. It turns itself off when the app hasn't been open for this long (not while the meter is on another network).</p>\n"
 "    <div class=\"row\"><button class=\"btn wide danger\" id=\"wifiOff\">Turn WiFi off (saves battery)</button></div>\n"
 "    <p class=\"note\">To turn WiFi back on, hold the meter's button for 3 seconds.</p>\n"
@@ -11239,7 +11239,7 @@ void loop() {
   handleSerial();
   if (logoShowReq) { logoShowReq = false; showStartLogo(); lastFrameOk = false; }   // phone asked to see the logo
   if (wifiOn) { inServer = true; server.handleClient(); inServer = false; netService(now); }
-  if (wifiOn && wifiAutoMin && netMode == NET_AP && now - lastAppAt > (uint32_t)wifiAutoMin * 60000UL) {   // no app for a while: save battery
+  if (wifiOn && wifiAutoMin && !wiredModel && netMode == NET_AP && now - lastAppAt > (uint32_t)wifiAutoMin * 60000UL) {   // no app for a while: save battery
     wifiStop(); toast("WiFi off", "Hold 3 s to turn on", 3000);   // not saved: WiFi is back on after a restart
   }
   if (wifiOffAt && (int32_t)(now - wifiOffAt) >= 0) { wifiOffAt = 0; wifiStop(); savePrefs(); toast("WiFi off", "Hold 3 s to turn on", 1500); }
