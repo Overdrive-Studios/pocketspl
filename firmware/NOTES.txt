@@ -1,3 +1,4 @@
+v1.1.66 - Fix: WiFi could switch itself off straight after the phone app talked to the meter.
 v1.1.65 - WiFi auto-off never applies to wired meters (setting hidden on them).
 v1.1.64 - Fix: the Plugins page now opens from Settings.
 v1.1.63 - Scheduler plugin for wired meters: calendar of weekly and dated events that turn the meter on and to standby, put the event name in the log, and can set their own limit or turn the limit alarm off.

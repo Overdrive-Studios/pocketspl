@@ -157,7 +157,7 @@
 #define OLED_SPI_HZ  8000000   // screen speed: 8 MHz runs clean on the new screen (drop to 4000000 if it ever scrambles)
 
 // ---------------- Settings ----------------
-#define FW_VERSION "1.1.65"                 // software (firmware) version: change this for every release
+#define FW_VERSION "1.1.66"                 // software (firmware) version: change this for every release
 #define MODEL_NO   "PS-1"                  // model number: only change it for a new model with different hardware
 const char FW_TAG[] = "POCKETSPL-FW " MODEL_NO " " FW_VERSION;   // marks this file as PocketSPL software for this model
 #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
@@ -11239,7 +11239,7 @@ void loop() {
   handleSerial();
   if (logoShowReq) { logoShowReq = false; showStartLogo(); lastFrameOk = false; }   // phone asked to see the logo
   if (wifiOn) { inServer = true; server.handleClient(); inServer = false; netService(now); }
-  if (wifiOn && wifiAutoMin && !wiredModel && netMode == NET_AP && now - lastAppAt > (uint32_t)wifiAutoMin * 60000UL) {   // no app for a while: save battery
+  if (wifiOn && wifiAutoMin && !wiredModel && netMode == NET_AP && (int32_t)(millis() - lastAppAt) > (int32_t)(wifiAutoMin * 60000UL)) {   // millis(), not now: a request in this loop can be newer than now   // no app for a while: save battery
     wifiStop(); toast("WiFi off", "Hold 3 s to turn on", 3000);   // not saved: WiFi is back on after a restart
   }
   if (wifiOffAt && (int32_t)(now - wifiOffAt) >= 0) { wifiOffAt = 0; wifiStop(); savePrefs(); toast("WiFi off", "Hold 3 s to turn on", 1500); }
